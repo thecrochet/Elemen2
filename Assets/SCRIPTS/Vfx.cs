@@ -35,6 +35,7 @@ public enum VfxType
 
     // looping effects, in the color of the current element: ON/OFF, follow the ball
     DashTrail,
+    RunTrail,       // a soft light trace while running fast on the ground
     WallSlide,
     GlideStream,
 
@@ -227,6 +228,7 @@ public class Vfx : MonoBehaviour
 
         // the movement effects stop (a new power = a clean start)
         SetLoopInternal(VfxType.DashTrail, false);
+        SetLoopInternal(VfxType.RunTrail, false);
         SetLoopInternal(VfxType.WallSlide, false);
         SetLoopInternal(VfxType.GlideStream, false);
 

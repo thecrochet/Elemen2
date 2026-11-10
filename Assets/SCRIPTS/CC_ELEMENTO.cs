@@ -210,11 +210,23 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // sound
     private float _airTime;            // how long we have been in the air (a landing sound needs a real fall)
 
+    // Jump, Land, DoubleJump and GroundPoundImpact appear this many units ABOVE the pivot (0 = at the pivot).
+    // Raise it if the effect looks too low under the ball, lower it if it floats.
+    [Header("Effects")]
+    public float EffectFeetHeight = 0.15f;
+
+    // The run trail only shows when the ball is at least this fraction of the run speed (0.85 = near top speed)
+    [Range(0.5f, 1f)] public float RunTrailSpeedFraction = 0.85f;
+
+    // where the feet effects appear: just above the pivot, along the ball's up direction (follows a gravity flip)
+    private Vector3 FeetPosition => _kinematicMotor.TransientPosition + _kinematicMotor.TransientRotation * Vector3.up * EffectFeetHeight;
+
     // where the effects appear: the middle of the ball (the pivot is at the feet)
     private Vector3 BallCenter => _kinematicMotor.TransientPosition + _kinematicMotor.TransientRotation * _capsule.center;
 
     // bounce pad
     private float _padLaunchSpeed;     // set by LaunchFromPad, applied in UpdateVelocity (0 = nothing waiting)
+    private Collider _lastSlamGround;      // the broken block the slam just went through (see PostGroundingUpdate)
     private float _recentSlamTimer;    // >0 for a moment after a ground pound landing
 
     // ice
@@ -445,7 +457,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             if (_airTime > 0.15f && CurrentState == CharacterState.Default)
             {
                 Sfx.Play(SfxType.Land);
-                Vfx.Play(VfxType.Land, _kinematicMotor.TransientPosition, _kinematicMotor.TransientRotation);
+                Vfx.Play(VfxType.Land, FeetPosition, _kinematicMotor.TransientRotation);
             }
 
             _airTime = 0f;
@@ -546,13 +558,25 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _glideReady = false;
         _glideLatched = false;
 
+        // the air loops only exist in the air: turn them off when we touch the ground
+        // (SetLoop does nothing if the loop is already off, so this costs nothing)
+        Vfx.SetLoop(VfxType.GlideStream, false);
+        Vfx.SetLoop(VfxType.WallSlide, false);
+
         // MoveTowards changes the velocity by a fixed amount per second (snappier than Lerp)
         currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, accel * deltaTime);
+
+        // RUN TRAIL: a light trace behind us, only when we run AND are really fast (so it is earned, not constant)
+        bool trailOn = _isRunning && currentVelocity.magnitude >= RunSpeed * RunTrailSpeedFraction;
+        Vfx.SetLoop(VfxType.RunTrail, trailOn);
     }
 
     // logic for the air movement
     private void AirMovement(ref Vector3 currentVelocity, float deltaTime)
     {
+        // no run trail in the air
+        Vfx.SetLoop(VfxType.RunTrail, false);
+
         // split the velocity in a vertical part (up/down) and a horizontal part
         Vector3 up = _kinematicMotor.CharacterUp;
         Vector3 vertical = Vector3.Project(currentVelocity, up);
@@ -667,7 +691,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             ApplyJump(ref currentVelocity);
             Sfx.Play(SfxType.Jump);
-            Vfx.Play(VfxType.Jump, _kinematicMotor.TransientPosition, _kinematicMotor.TransientRotation);
+            Vfx.Play(VfxType.Jump, FeetPosition, _kinematicMotor.TransientRotation);
 
             _jumpConsumed = true;
             _coyoteTimer = 0f;
@@ -682,7 +706,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             ApplyJump(ref currentVelocity);
             Sfx.Play(SfxType.DoubleJump);
-            Vfx.PlayTinted(VfxType.DoubleJump, _kinematicMotor.TransientPosition, _kinematicMotor.TransientRotation, CurrentPower);
+            Vfx.PlayTinted(VfxType.DoubleJump, FeetPosition, _kinematicMotor.TransientRotation, CurrentPower);
 
             _doubleJumpConsumed = true;
         }
@@ -849,7 +873,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     {
         Sfx.Play(SfxType.GroundPoundImpact);
         _airTime = 0f;   // the impact has its own sound: no extra landing sound
-        Vfx.PlayTinted(VfxType.GroundPoundImpact, _kinematicMotor.TransientPosition, _kinematicMotor.TransientRotation, CurrentPower);
+        Vfx.PlayTinted(VfxType.GroundPoundImpact, FeetPosition, _kinematicMotor.TransientRotation, CurrentPower);
 
         // NonAlloc = fills our existing array instead of creating a new one
         int count = Physics.OverlapSphereNonAlloc(transform.position, GroundPoundRadius,
@@ -865,7 +889,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             if (destructible != null && !_impactTargets.Contains(destructible))
             {
                 _impactTargets.Add(destructible);
-                destructible.TakeHit(HitSource.GroundPound);
+                destructible.TakeHit(HitSource.GroundPound, -_kinematicMotor.CharacterUp);
             }
         }
     }
@@ -959,14 +983,24 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                     Sfx.Play(SfxType.Dash);
                     Vfx.PlayTinted(VfxType.DashStart, BallCenter, Quaternion.identity, CurrentPower);
                     Vfx.SetLoop(VfxType.DashTrail, true);
+                    Vfx.SetLoop(VfxType.RunTrail, false);
+
+                    // the air loops stop while dashing (AirMovement does not run during a dash)
+                    Vfx.SetLoop(VfxType.GlideStream, false);
+                    Vfx.SetLoop(VfxType.WallSlide, false);
                     break;
                 }
 
             case CharacterState.GroundPound:
                 {
                     _groundPoundWindupRemaining = GroundPoundWindup;
+                    _lastSlamGround = null;
                     Sfx.Play(SfxType.GroundPoundStart);
                     Vfx.PlayTinted(VfxType.GroundPoundStart, BallCenter, Quaternion.identity, CurrentPower);
+
+                    // the air loops stop during the slam
+                    Vfx.SetLoop(VfxType.GlideStream, false);
+                    Vfx.SetLoop(VfxType.WallSlide, false);
 
                     // forget the wall, we are not sliding anymore
                     _wallContactTimer = 0f;
@@ -1180,7 +1214,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                     DestructibleObject destructible = hitCollider.GetComponentInParent<DestructibleObject>();
 
                     if (destructible != null)
-                        destructible.TakeHit(HitSource.Dash);
+                        destructible.TakeHit(HitSource.Dash, _dashDirection);
                     break;
                 }
         }
@@ -1194,7 +1228,26 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             && _groundPoundWindupRemaining <= 0f
             && _kinematicMotor.GroundingStatus.IsStableOnGround)
         {
+            // the block we landed on (so we can see if the shockwave broke it)
+            Collider groundCollider = _kinematicMotor.GroundingStatus.GroundCollider;
+
+            // this block was already handled (PostGroundingUpdate can run twice in one motor step)
+            if (groundCollider != null && groundCollider == _lastSlamGround) return;
+
             GroundPoundImpact();
+
+            // MARIO SLAM: if the block under us broke, the slam does NOT stop: we fall through
+            // and hit the next one (a stack of breakable blocks is destroyed in one go)
+            DestructibleObject groundBlock = groundCollider != null ? groundCollider.GetComponentInParent<DestructibleObject>() : null;
+
+            if (groundBlock != null && groundBlock.IsBroken)
+            {
+                _lastSlamGround = groundCollider;
+                _kinematicMotor.ForceUnground();
+                return;
+            }
+
+            _lastSlamGround = null;
             TransitionToState(CharacterState.Default);
 
             // Landing gives the jumps back (the Default case of AfterCharacterUpdate
