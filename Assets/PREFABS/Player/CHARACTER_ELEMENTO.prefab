@@ -287,7 +287,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d1bc5515e3ab954e80599c538834774, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KinematicCharacterController.KinematicCharacterMotor
-  Capsule: {fileID: 7068640567211535073}
   CapsuleRadius: 0.5
   CapsuleHeight: 1.01
   CapsuleYOffset: 1
@@ -368,7 +367,7 @@ MonoBehaviour:
   GroundPoundRadius: 1.5
   DestructibleLayers:
     serializedVersion: 2
-    m_Bits: 16384
+    m_Bits: 0
   GroundPoundBounceStrength: 12
   GlideFallSpeed: 3
   GlideBrake: 160
@@ -394,11 +393,11 @@ MonoBehaviour:
   BallRenderer: {fileID: 6572177942722277939}
   BallRadius: 0.5
   RollSpeedMultiplier: 1
-  NoPowerMaterial: {fileID: -6538903991835684241, guid: c68748fc29945654b8e3544eb70fc034, type: 3}
-  FireMaterial: {fileID: 2100000, guid: 02de46ee16a0fe442a1be2bbedc31b6a, type: 2}
-  AirMaterial: {fileID: 2100000, guid: 51fed7560048f674cb2b22dd7846ae12, type: 2}
-  EarthMaterial: {fileID: 15303, guid: 0000000000000000f000000000000000, type: 0}
-  WaterMaterial: {fileID: 2100000, guid: a8dc55c03c185004fad777117df41816, type: 2}
+  NoPowerMaterial: {fileID: 2100000, guid: 8053108f7a187574a9eed30b6d8ebf20, type: 2}
+  FireMaterial: {fileID: 2100000, guid: 65e704ff941d6684290859afa56205e2, type: 2}
+  AirMaterial: {fileID: 2100000, guid: 53dd178a15d36f84b98a502c3e8eed1a, type: 2}
+  EarthMaterial: {fileID: 2100000, guid: e8f8ea214d157314fa55999892ff4c94, type: 2}
+  WaterMaterial: {fileID: 2100000, guid: 8d741aafdb6951148a98fb8161e8753a, type: 2}
   ParachuteVisual: {fileID: 8683805454210405304}
 --- !u!1 &8683805454210405304
 GameObject:

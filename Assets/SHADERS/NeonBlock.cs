@@ -32,7 +32,7 @@ public class NeonBlock : MonoBehaviour
     }
 
     // Number of boxes on each axis
-    public Vector3Int Size = new Vector3Int(4, 1, 1);
+    public Vector3Int Size = new Vector3Int(1, 1, 1);
 
     // The size of one box in world units (1 = the same as the grid)
     public float CellSize = 1f;
