@@ -1,24 +1,23 @@
-// Portal_HexGate: a hexagon gate: glowing frame, a node on each corner, a slowly spinning inner hexagon,
-// and a grid of hexagon cells that lights up near the edges. Hexagon = "special / bounce" in your shape language.
-// Use it on a Quad. Needs PortalCommon.hlsl in the same folder.
-Shader "Elemento/Portal/HexGate"
+// Portal_Vortex: a ring of whirling flames (energy fire) around a see-through center with floating hexagons.
+// Looks like the cyan start portal. Good for the START of a level.
+// Use it on a Quad. Needs PortalLegacyCommon.hlsl in the same folder.
+Shader "Elemento/Portal/Vortex"
 {
     Properties
     {
-        [Header(Colors)]
-        [HDR] _EdgeColor ("Frame Color", Color) = (2.6, 0.2, 2, 1)
-        [HDR] _NodeColor ("Corner Node Color", Color) = (5, 2, 4.5, 1)
-        [HDR] _FillColor ("Inside Tint", Color) = (0.12, 0.01, 0.1, 1)
-        _FillAlpha ("Inside Opacity", Range(0, 1)) = 0.25
+        [Header(Flames)]
+        [HDR] _FlameColor ("Flame Color", Color) = (0.2, 1.6, 2.4, 1)
+        [HDR] _CoreColor ("Hot Ring Color", Color) = (2, 4, 5, 1)
+        _Radius ("Ring Radius", Range(0.2, 0.8)) = 0.55
+        _FlameHeight ("Flame Height", Range(0.05, 0.5)) = 0.3
+        _FlameSpeed ("Flame Speed", Float) = 1
+        _Turbulence ("Wobble Amount", Range(0, 0.6)) = 0.25
 
-        [Header(Shape)]
-        _Radius ("Hexagon Size", Range(0.3, 0.95)) = 0.75
-        _FrameWidth ("Frame Thickness", Range(0.01, 0.1)) = 0.03
-        _HexScale ("Cell Density", Range(2, 14)) = 6
-
-        [Header(Motion)]
-        _InnerSpin ("Inner Hexagon Spin", Float) = 0.3
-        _PulseSpeed ("Pulse Speed", Float) = 1.3
+        [Header(Inside)]
+        [HDR] _InteriorColor ("Inside Tint", Color) = (0.02, 0.12, 0.18, 1)
+        _InteriorAlpha ("Inside Opacity", Range(0, 1)) = 0.25
+        [HDR] _HexColor ("Hexagon Color", Color) = (0.4, 2.4, 3, 1)
+        _HexScale ("Hexagon Density", Range(2, 12)) = 5
 
         [Header(Depth)]
         _DepthBack ("Depth: Inner Layers Behind", Range(0, 0.6)) = 0.15
@@ -53,18 +52,19 @@ Shader "Elemento/Portal/HexGate"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #include "PortalCommon.hlsl"
+            #include "PortalLegacyCommon.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
-                float4 _EdgeColor;
-                float4 _NodeColor;
-                float4 _FillColor;
-                float _FillAlpha;
+                float4 _FlameColor;
+                float4 _CoreColor;
                 float _Radius;
-                float _FrameWidth;
+                float _FlameHeight;
+                float _FlameSpeed;
+                float _Turbulence;
+                float4 _InteriorColor;
+                float _InteriorAlpha;
+                float4 _HexColor;
                 float _HexScale;
-                float _InnerSpin;
-                float _PulseSpeed;
                 float _Opacity;
                 float _DepthBack;
                 float _DepthFront;
@@ -81,51 +81,49 @@ Shader "Elemento/Portal/HexGate"
                 float2 pBack = PortalBack(p, IN.viewShift, _DepthBack);
                 float2 pFront = PortalFront(p, IN.viewShift, _DepthFront);
                 float t = _Time.y;
-
-                // distance to the frame (negative inside). A hexagon with corners at _Radius has HexDist = _Radius * 0.866 on its border
-                float apothem = _Radius * 0.8660254;
-                float d = HexDist(p) - apothem;
-                float aa = max(fwidth(d) * 1.5, 0.0001);
-                float inside = saturate(-d / aa);
+                float r = length(p);
+                float turns = atan2(p.y, p.x) / PORTAL_TAU + 0.5;
+                float aaR = max(fwidth(r) * 1.5, 0.0001);
 
                 float4 res = float4(0, 0, 0, 0);
 
-                // ---------------- INSIDE ----------------
-                res = Over(res, _FillColor.rgb, _FillAlpha * inside);
+                // ---------------- THE INSIDE ----------------
+                float inside = saturate((_Radius - r) / aaR);
+                res = Over(res, _InteriorColor.rgb, _InteriorAlpha * inside);
 
-                // a grid of hexagons (turned 30 degrees so it matches the frame): cells near the edge are brighter, a few light up
+                // floating hexagons: they are always faint, and some of them light up in turns
                 float2 gv;
                 float2 id;
-                HexCell(Rot2(pBack, PORTAL_PI / 6.0) * _HexScale + float2(0.0, t * 0.2), gv, id);
+                HexCell(pBack * _HexScale + float2(0.0, t * 0.3), gv, id);
                 float h = hash21(id);
-                float nearEdge = 1.0 - saturate(-d / (_Radius * 0.8));
-                float lit = step(0.7, h) * (0.5 + 0.5 * sin(t * _PulseSpeed + h * 30.0));
-                float cellLine = Stroke(CellEdge(gv) - 0.44, 0.025);
-                res = AddGlow(res, _EdgeColor.rgb * cellLine * (0.1 * nearEdge + lit * 0.9) * inside);
+                float lit = step(0.8, h) * (0.5 + 0.5 * sin(t * 1.5 + h * 20.0));
+                float hexLine = Stroke(CellEdge(gv) - 0.42, 0.03);
+                float fadeToRing = saturate(1.2 - r / _Radius);
+                res = AddGlow(res, _HexColor.rgb * hexLine * (0.12 + lit * 1.4) * fadeToRing * inside);
 
-                // a small hexagon in the middle that turns slowly
-                float innerHex = HexDist(Rot2(pBack, t * _InnerSpin)) - apothem * 0.3;
-                res = AddGlow(res, _EdgeColor.rgb * (Stroke(innerHex, 0.012) + Soft(innerHex, 0.05) * 0.2));
+                // ---------------- THE FLAMES ----------------
+                // we bend the space a little with noise, so the ring wobbles like a flame
+                float2 warp = float2(fbm2(p * 3.0 + float2(0.0, -t * 0.8)),
+                                     fbm2(p * 3.0 + float2(5.2, 1.3) - t * 0.5)) - 0.5;
+                float2 q = p + warp * _Turbulence;
+                float rq = length(q);
+                float d = rq - _Radius;                                   // negative inside the ring, positive outside
 
-                // ---------------- FRAME ----------------
-                float frame = Stroke(d, _FrameWidth * 0.5);
-                float inset = Stroke(d + 0.07, 0.006);
-                float halo = Soft(max(d, 0.0), 0.1) * 0.3;
-                res = AddGlow(res, _EdgeColor.rgb * (frame * 1.2 + inset * 0.6 + halo));
+                // tongues of flame that rise outward and drift around the ring
+                float2 dirQ = q / max(rq, 0.001);
+                float tongue = fbm2(dirQ * 2.2 + float2(1.0, 0.6) * (rq * 6.0 - t * _FlameSpeed));
+                float outward = saturate(d / _FlameHeight);               // 0 on the ring, 1 at the tip of the flame
+                float flame = (1.0 - outward) * smoothstep(0.25, 0.8, tongue + (1.0 - outward) * 0.5) * step(-0.04, d);
 
-                // a glowing node on each of the 6 corners
-                float nodes = 0.0;
+                float ringLine = Stroke(d, 0.018);
+                float glow = Soft(d, 0.06);
 
-                [unroll]
-                for (int k = 0; k < 6; k++)
-                {
-                    float angle = k * PORTAL_PI / 3.0;
-                    float nd = length(pFront - _Radius * float2(cos(angle), sin(angle)));
-                    float blink = 0.7 + 0.3 * sin(t * _PulseSpeed * 1.5 + k);
-                    nodes += ((1.0 - smoothstep(0.0, 0.06, nd)) + Soft(nd, 0.08) * 0.4) * blink;
-                }
+                res = AddGlow(res, _FlameColor.rgb * (flame * 1.2 + glow * 0.5));
+                res = AddGlow(res, _CoreColor.rgb * ringLine * (0.8 + 0.4 * tongue));
 
-                res = AddGlow(res, _NodeColor.rgb * nodes);
+                // embers that fly up from the flames
+                float embers = Sparks(Rot2(pFront, t * 0.2), 12.0, t * 0.5) * Soft(max(d, 0.0), 0.2) * step(0.0, d);
+                res = AddGlow(res, _CoreColor.rgb * embers * 1.5);
 
                 return res;
             }

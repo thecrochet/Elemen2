@@ -1,7 +1,7 @@
 // Portal_NeonArch: a Tron-style arch: a double neon frame, a light pulse that climbs the sides,
 // and a see-through energy veil with scan lines. The bottom can be left open (it sits on the floor).
 // Use it on a Quad. Keep the Quad SQUARE (scale X = scale Y) and change the shape with Half Width / Half Height.
-// Needs PortalCommon.hlsl in the same folder.
+// Needs PortalLegacyCommon.hlsl in the same folder.
 Shader "Elemento/Portal/NeonArch"
 {
     Properties
@@ -54,7 +54,7 @@ Shader "Elemento/Portal/NeonArch"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #include "PortalCommon.hlsl"
+            #include "PortalLegacyCommon.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _EdgeColor;

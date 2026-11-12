@@ -1,26 +1,23 @@
-// Portal_GoldHalo: a bright golden gate of turning rings, a spiral and drifting sparks around a glowing core.
-// Looks like the golden portal at the end of the path. Good for the FINISH of a level (it reads as "go here").
-// Use it on a Quad. Needs PortalCommon.hlsl in the same folder.
-Shader "Elemento/Portal/GoldHalo"
+// Portal_Singularity: a pure black disc with a thin hot ring and a glowing disk that turns and pulls light inward.
+// The most READABLE of the six (a black hole in a dark world pops out): good when the level is already busy.
+// Use it on a Quad. Needs PortalLegacyCommon.hlsl in the same folder.
+Shader "Elemento/Portal/Singularity"
 {
     Properties
     {
         [Header(Colors)]
-        [HDR] _GoldColor ("Ring Color", Color) = (3, 1.8, 0.3, 1)
-        [HDR] _CoreColor ("Core Color", Color) = (4, 3.2, 1.2, 1)
-        [HDR] _HaloColor ("Spiral and Halo Color", Color) = (1.6, 0.9, 0.15, 1)
-        [HDR] _FillColor ("Inside Tint", Color) = (0.15, 0.06, 0, 1)
-        _FillAlpha ("Inside Opacity", Range(0, 1)) = 0.2
+        [HDR] _RingColor ("Ring Color", Color) = (2.5, 1.6, 0.6, 1)
+        [HDR] _HotColor ("Hot Spot Color", Color) = (4, 3.5, 3, 1)
+        [HDR] _DiskColor ("Disk Color", Color) = (1.2, 0.35, 0.08, 1)
 
         [Header(Shape)]
-        _Radius ("Main Ring Radius", Range(0.2, 0.8)) = 0.5
-        [IntRange] _Arms ("Spiral Arms", Range(1, 6)) = 3
-        _SpiralTightness ("Spiral Tightness", Range(0, 12)) = 6
+        _Radius ("Black Disc Radius", Range(0.1, 0.7)) = 0.42
+        _RingWidth ("Ring Thickness", Range(0.005, 0.08)) = 0.025
+        _DiskWidth ("Disk Reach", Range(0.05, 0.6)) = 0.28
 
         [Header(Motion)]
-        _SpinSpeed ("Spin Speed", Float) = 0.5
-        _PulseSpeed ("Pulse Speed", Float) = 1.2
-        _SparkScale ("Spark Density", Range(4, 30)) = 10
+        _SpinSpeed ("Spin Speed", Float) = 0.7
+        _InflowSpeed ("Inflow Speed", Float) = 0.8
 
         [Header(Depth)]
         _DepthBack ("Depth: Inner Layers Behind", Range(0, 0.6)) = 0.15
@@ -55,20 +52,17 @@ Shader "Elemento/Portal/GoldHalo"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #include "PortalCommon.hlsl"
+            #include "PortalLegacyCommon.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
-                float4 _GoldColor;
-                float4 _CoreColor;
-                float4 _HaloColor;
-                float4 _FillColor;
-                float _FillAlpha;
+                float4 _RingColor;
+                float4 _HotColor;
+                float4 _DiskColor;
                 float _Radius;
-                float _Arms;
-                float _SpiralTightness;
+                float _RingWidth;
+                float _DiskWidth;
                 float _SpinSpeed;
-                float _PulseSpeed;
-                float _SparkScale;
+                float _InflowSpeed;
                 float _Opacity;
                 float _DepthBack;
                 float _DepthFront;
@@ -86,45 +80,40 @@ Shader "Elemento/Portal/GoldHalo"
                 float2 pFront = PortalFront(p, IN.viewShift, _DepthFront);
                 float rBack = length(pBack);
                 float turnsBack = atan2(pBack.y, pBack.x) / PORTAL_TAU + 0.5;
-                float rFront = length(pFront);
-                float turnsFront = atan2(pFront.y, pFront.x) / PORTAL_TAU + 0.5;
                 float t = _Time.y;
                 float r = length(p);
-                float turns = atan2(p.y, p.x) / PORTAL_TAU + 0.5;
+                float angle = atan2(p.y, p.x);
+                float turns = angle / PORTAL_TAU + 0.5;
                 float aaR = max(fwidth(r) * 1.5, 0.0001);
-                float pulse = 0.8 + 0.2 * sin(t * _PulseSpeed);
+                float d = r - _Radius;                              // negative inside the black disc
 
                 float4 res = float4(0, 0, 0, 0);
 
-                // inside tint (so the portal stays readable on a bright background)
-                float inside = saturate((_Radius - r) / aaR);
-                res = Over(res, _FillColor.rgb, _FillAlpha * inside);
+                // ---------------- THE DISK OF LIGHT ----------------
+                // it turns faster near the middle (the farther, the slower)
+                float2 turned = Rot2(pBack, -t * _SpinSpeed / (1.0 + rBack * 4.0));
+                float streaks = pow(fbm2(turned * 6.0), 2.0);
+                float diskMask = step(0.0, d) * Soft(d, _DiskWidth * 0.4);
+                res = AddGlow(res, _DiskColor.rgb * (0.25 + streaks * 2.0) * diskMask);
 
-                // the spiral: arms that turn slowly around the middle (the arm count must be a whole number)
-                float spiral = frac(turnsBack * _Arms - log(rBack + 0.05) * _SpiralTightness - t * _SpinSpeed);
-                float arm = smoothstep(0.0, 0.5, spiral) * (1.0 - smoothstep(0.5, 1.0, spiral));
-                float armMask = (1.0 - smoothstep(_Radius * 0.4, _Radius, rBack)) * smoothstep(0.03, 0.2, rBack);
-                res = AddGlow(res, _HaloColor.rgb * arm * armMask * 0.5);
+                // thin lines of light that fall into the hole (a phase that shrinks over time = moving inward)
+                float cell = floor(turnsBack * 60.0);
+                float h = hash21(float2(cell, 1.0));
+                float across = frac(turnsBack * 60.0) - 0.5;
+                float flow = frac(rBack * 2.5 + t * _InflowSpeed * (0.5 + h) + h * 7.0);
+                float fall = step(0.7, h) * (1.0 - smoothstep(0.0, 0.1, abs(across))) * smoothstep(0.0, 0.2, flow) * (1.0 - smoothstep(0.5, 1.0, flow));
+                res = AddGlow(res, _RingColor.rgb * fall * step(0.0, d) * Soft(d, 0.25) * 0.8);
 
-                // the core
-                float core = Soft(rBack, 0.18) * 0.6 + (1.0 - smoothstep(0.0, 0.08, rBack));
-                res = AddGlow(res, _CoreColor.rgb * core * pulse);
+                // ---------------- THE BLACK DISC ----------------
+                res = Over(res, float3(0, 0, 0), saturate(-d / aaR));
 
-                // the main ring
-                res = AddGlow(res, _GoldColor.rgb * (Stroke(r - _Radius, 0.016) + Soft(r - _Radius, 0.07) * 0.35) * pulse);
-
-                // a dashed ring inside that turns one way
-                float dashes = step(frac(turnsBack * 14.0 + t * _SpinSpeed), 0.5);
-                res = AddGlow(res, _HaloColor.rgb * Stroke(rBack - _Radius * 0.62, 0.008) * dashes);
-
-                // long arcs outside that turn the other way
-                float arcs = step(frac(turnsFront * 3.0 - t * _SpinSpeed * 0.7), 0.55);
-                res = AddGlow(res, _GoldColor.rgb * Stroke(rFront - _Radius * 1.25, 0.008) * arcs * 0.8);
-
-                // a wide soft halo and sparks flying around
-                res = AddGlow(res, _HaloColor.rgb * Soft(r - _Radius, 0.25) * 0.15);
-                float sparks = Sparks(Rot2(pFront, t * 0.3), _SparkScale, t * 0.4) * (1.0 - smoothstep(0.3, 1.0, r));
-                res = AddGlow(res, _CoreColor.rgb * sparks * 1.5);
+                // ---------------- THE RING ----------------
+                // one side of the ring is brighter, and that side travels around
+                float bright = 0.55 + 0.45 * cos(angle - t * _SpinSpeed);
+                float ring = Stroke(d - _RingWidth * 0.5, _RingWidth * 0.5);
+                float ringGlow = Soft(d, 0.04);
+                res = AddGlow(res, _RingColor.rgb * (ring + ringGlow * 0.4) * bright);
+                res = AddGlow(res, _HotColor.rgb * ring * pow(bright, 4.0));
 
                 return res;
             }

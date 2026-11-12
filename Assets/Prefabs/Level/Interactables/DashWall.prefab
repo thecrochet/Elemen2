@@ -5022,8 +5022,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7fbea8124a74b484da13c15780df82ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DestructibleObject
-  BreakableByDash: 0
-  BreakableByGroundPound: 1
+  BreakableByDash: 1
+  BreakableByGroundPound: 0
   HitsToBreak: 1
   HitCooldown: 0.2
   ChainReaction: 1

@@ -53,7 +53,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Size: {x: 20, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &3235171942893513047
 MonoBehaviour:
@@ -67,10 +67,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7cc53507b6528ab4abeee7eb896bce30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NeonBlock
-  Size: {x: 1, y: 1, z: 1}
+  Size: {x: 20, y: 1, z: 1}
   CellSize: 1
   Anchor: 0
-  Visual: {fileID: 0}
+  Visual: {fileID: 9098355195169850199}
 --- !u!1001 &3379743163082597769
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -81,7 +81,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 5810940222614677214, guid: 0514819090730a74e896274c13a8ce80, type: 3}
       propertyPath: m_LocalScale.x
-      value: 23
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 5810940222614677214, guid: 0514819090730a74e896274c13a8ce80, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5810940222614677214, guid: 0514819090730a74e896274c13a8ce80, type: 3}
       propertyPath: m_LocalRotation.x
@@ -147,5 +151,10 @@ PrefabInstance:
 --- !u!4 &8077367969902216171 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6845420716443313762, guid: 0514819090730a74e896274c13a8ce80, type: 3}
+  m_PrefabInstance: {fileID: 3379743163082597769}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &9098355195169850199 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 5810940222614677214, guid: 0514819090730a74e896274c13a8ce80, type: 3}
   m_PrefabInstance: {fileID: 3379743163082597769}
   m_PrefabAsset: {fileID: 0}

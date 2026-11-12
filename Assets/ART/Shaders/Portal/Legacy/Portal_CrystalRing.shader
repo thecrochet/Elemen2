@@ -1,6 +1,6 @@
 // Portal_CrystalRing: a dark swirling void inside a ring of spiked glowing crystals, with runes.
 // Looks like the red crystal portal. Change the colors for another world (red = fire, cyan = water...).
-// Use it on a Quad. Needs PortalCommon.hlsl in the same folder.
+// Use it on a Quad. Needs PortalLegacyCommon.hlsl in the same folder.
 Shader "Elemento/Portal/CrystalRing"
 {
     Properties
@@ -57,7 +57,7 @@ Shader "Elemento/Portal/CrystalRing"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #include "PortalCommon.hlsl"
+            #include "PortalLegacyCommon.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _CrystalColor;
