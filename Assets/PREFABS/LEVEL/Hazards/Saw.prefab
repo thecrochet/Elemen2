@@ -119,7 +119,7 @@ Transform:
   m_GameObject: {fileID: 4460337672122218045}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -67.22, y: 0, z: -16.77}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -138,6 +138,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad6b233b941bcde4896903f8bf1b47eb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hazard
+  HitEffect: {fileID: 0}
 --- !u!135 &4800374700897782914
 SphereCollider:
   m_ObjectHideFlags: 0
