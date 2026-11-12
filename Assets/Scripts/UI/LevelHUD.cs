@@ -53,7 +53,7 @@ public class LevelHUD : MonoBehaviour
             AttemptsText.text = "Attempt " + _lastAttempts;
         }
 
-        if (level.IsFinished && !level.HoldFinishPanel && !_finishShown)
+        if (level.IsFinished && !_finishShown)
             ShowFinish(level);
     }
 
