@@ -367,7 +367,7 @@ MonoBehaviour:
   GroundPoundRadius: 1.5
   DestructibleLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   GroundPoundBounceStrength: 12
   GlideFallSpeed: 3
   GlideBrake: 160
