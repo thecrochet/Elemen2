@@ -37,7 +37,8 @@ public class NeonBlock : MonoBehaviour
     // The size of one box in world units (1 = the same as the grid)
     public float CellSize = 1f;
 
-    public AnchorType Anchor = AnchorType.Left;
+    // TopLeft = the pivot is the top-left corner. Every block of a level then sits on whole numbers.
+    public AnchorType Anchor = AnchorType.TopLeft;
 
     // The cube with the neon material (a child)
     public Transform Visual;
@@ -104,6 +105,18 @@ public class NeonBlock : MonoBehaviour
         MeshRenderer meshRenderer = visual.GetComponent<MeshRenderer>();
         meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         meshRenderer.receiveShadows = false;
+
+        // the neon grid material: the first one found (so a new block is not white)
+        foreach (string guid in AssetDatabase.FindAssets("t:Material"))
+        {
+            Material found = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+
+            if (found != null && found.shader != null && found.shader.name.StartsWith("Elemento/NeonGrid"))
+            {
+                meshRenderer.sharedMaterial = found;
+                break;
+            }
+        }
 
         // adding the script also adds the Box Collider (RequireComponent)
         NeonBlock block = root.AddComponent<NeonBlock>();

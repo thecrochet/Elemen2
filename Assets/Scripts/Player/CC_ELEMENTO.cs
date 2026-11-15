@@ -124,6 +124,29 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     public float DashCooldown = 0.25f;
 
     // ------------------------------------------------------------------
+    // BOOST (a DashZone in Boost mode, a "dash ring") - works without any power
+    // ------------------------------------------------------------------
+    // After the boost you keep its speed this long (seconds), as long as you keep pushing the same way.
+    public float BoostMomentumTime = 1.2f;
+
+    // SONIC STYLE: after a boost, as long as you keep pushing the way it threw you, the speed limit keeps growing.
+    // How much the limit grows per second (0 = off, you just keep the exit speed).
+    public float BoostAcceleration = 12f;
+
+    // The limit never grows beyond this (the run speed is 16, a dash is 28)
+    public float BoostMaxSpeed = 30f;
+
+    // On = the momentum does not run out while you keep pushing the same way (it ends a moment after you let go or turn)
+    public bool BoostKeepWhilePushing = true;
+
+    // ------------------------------------------------------------------
+    // ONE-WAY PLATFORMS
+    // ------------------------------------------------------------------
+    // Press DOWN + JUMP while standing on a one-way platform to drop through it.
+    // For this long (seconds) one-way platforms do not exist for us. It only has to be long enough to leave the top.
+    public float DropThroughTime = 0.2f;
+
+    // ------------------------------------------------------------------
     // GROUND POUND SETTINGS
     // ------------------------------------------------------------------
     // false until the player picks up the power-up
@@ -200,6 +223,24 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     private Vector3 _dashVelocity;
     private float _dashTimeRemaining;
     private float _dashCooldownTimer;
+
+    // boost (see BoostLaunch)
+    private bool _boostRequested;
+    private bool _boostActive;              // the current "dash" is a boost
+    private Vector3 _boostDirection;
+    private float _boostSpeed;
+    private float _boostTime;
+    private float _boostExitSpeed;
+    // DASH ZONE: Lane (forces the dash direction while inside) and Charge (extra dashes until landing)
+    private DashZone _laneZone;
+    private Vector3 _laneDirection;
+    private int _dashCharges;
+
+    private float _boostMomentumTimer;      // while > 0 the speed limit is raised to _boostCap
+    private float _boostCap;
+
+    // one-way platform drop-through: > 0 while one-way platforms are ignored
+    private float _dropThroughTimer;
 
     // ground pound
     private bool _groundPoundRequested;
@@ -302,6 +343,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         // check if we should start a dash or a ground pound
         HandleDashInput();
+        HandleBoostRequest();
         HandleGroundPoundInput();
         HandleFlipInput();
     }
@@ -453,6 +495,19 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     {
         // timers that always count down, whatever the state
         _dashCooldownTimer -= deltaTime;
+        _boostMomentumTimer -= deltaTime;
+
+        // SONIC STYLE: pushing the way the boost threw us raises the speed limit (and keeps the momentum alive)
+        if (_boostMomentumTimer > 0f && BoostAcceleration > 0f && _moveInput.sqrMagnitude > 0.01f
+            && Vector3.Dot(_moveInput.normalized, _boostDirection) > 0.7f)
+        {
+            _boostCap = Mathf.MoveTowards(_boostCap, BoostMaxSpeed, BoostAcceleration * deltaTime);
+
+            if (BoostKeepWhilePushing)
+                _boostMomentumTimer += deltaTime;
+        }
+
+        _dropThroughTimer -= deltaTime;
         _wallJumpLockTimer -= deltaTime;
         _wallContactTimer -= deltaTime;
         _flipCooldownTimer -= deltaTime;
@@ -494,6 +549,9 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         // give back the dash too (after the cooldown)
                         if (_dashCooldownTimer <= 0f)
                             _dashUsed = false;
+
+                        // extra dashes from a Charge zone only last until you land
+                        _dashCharges = 0;
                     }
                     else
                     {
@@ -544,6 +602,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     {
         // holding the run button (only if UseRun is on) = higher top speed, slower build-up
         float maxSpeed = _isRunning ? RunSpeed : MaxGroundSpeed;
+
+        // after a boost: the speed limit stays high for a moment
+        if (_boostMomentumTimer > 0f)
+            maxSpeed = Mathf.Max(maxSpeed, _boostCap);
         float pushAccel = _isRunning ? RunAcceleration : GroundAcceleration;
         float stopAccel = GroundDeceleration;
 
@@ -595,6 +657,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             // (running keeps the run speed in the air too, but while gliding the speed limit is frozen)
             float airMaxSpeed = _glideLatched ? _glideSpeedCap : (_isRunning ? RunSpeed : MaxAirSpeed);
+
+            // after a boost: the speed limit stays high for a moment
+            if (_boostMomentumTimer > 0f)
+                airMaxSpeed = Mathf.Max(airMaxSpeed, _boostCap);
             Vector3 targetVelocity = _moveInput * airMaxSpeed;
             horizontal = Vector3.MoveTowards(horizontal, targetVelocity, AirAcceleration * deltaTime);
         }
@@ -693,6 +759,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         bool isGrounded = _kinematicMotor.GroundingStatus.IsStableOnGround;
 
+        // 0) DOWN + JUMP on a one-way platform = drop through it (no jump)
+        if (isGrounded && IsHoldingDown && TryStartDropThrough())
+            return;
+
         // 1) normal jump: on the ground, or just left it (coyote time)
         if (!_jumpConsumed && _coyoteTimer > 0f)
         {
@@ -762,7 +832,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // ------------------------------------------------------------------
     private void HandleDashInput()
     {
-        if (_dashRequested && hasDash && !_dashUsed
+        if (_dashRequested && hasDash && (!_dashUsed || _dashCharges > 0)
             && _dashCooldownTimer <= 0f
             && CurrentState == CharacterState.Default)
         {
@@ -771,6 +841,110 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         // the request is used (or ignored), reset it
         _dashRequested = false;
+    }
+
+    // ------------------------------------------------------------------
+    // BOOST (the dash ring)
+    // ------------------------------------------------------------------
+    // Called by DashZone (Boost mode) when the ball enters it.
+    //   direction = where to go (world space), speed = units per second during the boost,
+    //   time = seconds of the boost, exitSpeed = the speed you keep when it ends.
+    // It works like a dash (no gravity, constant speed), needs no power, and gives the dash back.
+    public void BoostLaunch(Vector3 direction, float speed, float time, float exitSpeed)
+    {
+        if (direction.sqrMagnitude < 0.0001f) return;
+
+        _boostDirection = direction.normalized;
+        _boostSpeed = speed;
+        _boostTime = Mathf.Max(time, 0.05f);
+        _boostExitSpeed = exitSpeed;
+        _boostRequested = true;
+    }
+
+    // ------------------------------------------------------------------
+    // DASH ZONE: LANE and CHARGE
+    // ------------------------------------------------------------------
+    // Lane: while the ball is inside the zone, every dash goes along the zone's direction (the dash still needs the Fire power).
+    public void EnterLane(DashZone zone, Vector3 direction)
+    {
+        if (direction.sqrMagnitude < 0.0001f) return;
+        _laneZone = zone;
+        _laneDirection = direction.normalized;
+    }
+
+    // Only the zone that set the lane can end it (two touching zones do not cancel each other)
+    public void ExitLane(DashZone zone)
+    {
+        if (_laneZone == zone)
+            _laneZone = null;
+    }
+
+    // Charge: gives extra dashes (on top of the normal one) until the ball lands or dies. Needs the Fire power to be used.
+    public void AddDashCharge(int count)
+    {
+        if (!hasDash) return;   // only the Fire power can use extra dashes
+        _dashCharges = Mathf.Max(_dashCharges, Mathf.Max(count, 0));
+    }
+
+    public int DashCharges
+    {
+        get { return _dashCharges; }
+    }
+
+    // True while a Lane zone forces the dash direction
+    public bool InLane
+    {
+        get { return _laneZone != null; }
+    }
+
+    private void HandleBoostRequest()
+    {
+        if (!_boostRequested) return;
+        _boostRequested = false;
+
+        if (CurrentState != CharacterState.Default && CurrentState != CharacterState.Dashing) return;
+
+        // a boost during a dash: finish the first one cleanly, then start the new one
+        if (CurrentState == CharacterState.Dashing)
+            TransitionToState(CharacterState.Default);
+
+        _boostActive = true;
+        TransitionToState(CharacterState.Dashing);
+    }
+
+    // True while the player holds DOWN (with JUMP it starts a drop through a one-way platform)
+    public bool IsHoldingDown
+    {
+        get
+        {
+            if (MoveAction == null) return false;
+
+            float y = MoveAction.action.ReadValue<Vector2>().y;
+            return _gravityFlipped ? y > 0.7f : y < -0.7f;
+        }
+    }
+
+    // If the ground under us is a one-way platform that allows it, start the drop. Returns true if the drop started.
+    private bool TryStartDropThrough()
+    {
+        Collider ground = _kinematicMotor.GroundingStatus.GroundCollider;
+
+        if (ground == null || !ground.TryGetComponent(out OneWayPlatform oneWay) || !oneWay.AllowDropThrough)
+            return false;
+
+        _dropThroughTimer = DropThroughTime;
+
+        // leave the ground, and use up the jump press (no free jump in the air)
+        _kinematicMotor.ForceUnground();
+        _jumpBufferTimer = 0f;
+        _coyoteTimer = 0f;
+        return true;
+    }
+
+    // The place of the feet = the lowest point of the ball's capsule (NOT the pivot: the capsule sits about 0.5 above the pivot)
+    public Vector3 FeetWorldPosition
+    {
+        get { return _kinematicMotor.TransientPosition + _kinematicMotor.CharacterTransformToCapsuleBottom; }
     }
 
     // ------------------------------------------------------------------
@@ -820,6 +994,9 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // ------------------------------------------------------------------
     // The pad calls this when we touch it. A ground pound landing gives the BIG launch.
     // Returns true if the pad launched us (the pad can play its effect).
+    // True if the last pad launch came from a ground pound (a BouncePad uses it to pick the big effect)
+    public bool LastPadLaunchWasGroundPound { get; private set; }
+
     public bool LaunchFromPad(float strength, float groundPoundStrength)
     {
         if (CurrentState != CharacterState.Default && CurrentState != CharacterState.GroundPound) return false;
@@ -841,6 +1018,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             slamming = true;
         }
 
+        LastPadLaunchWasGroundPound = slamming;
         _padLaunchSpeed = slamming ? groundPoundStrength : strength;
         _recentSlamTimer = 0f;
         return true;
@@ -978,15 +1156,36 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             case CharacterState.Dashing:
                 {
-                    // dash where the player pushes, or where the character faces if no input
-                    _dashDirection = _moveInput.sqrMagnitude > 0.01f
-                        ? _moveInput.normalized
-                        : _kinematicMotor.CharacterForward;
+                    if (_boostActive)
+                    {
+                        // a boost: the ring decides the direction and the speed, and the dash is given back
+                        _dashDirection = _boostDirection;
+                        _dashVelocity = _boostDirection * _boostSpeed;
+                        _dashTimeRemaining = _boostTime;
+                        _dashUsed = false;
+                        _kinematicMotor.ForceUnground();
+                    }
+                    else
+                    {
+                        // dash where the player pushes, or where the character faces if no input
+                        _dashDirection = _moveInput.sqrMagnitude > 0.01f
+                            ? _moveInput.normalized
+                            : _kinematicMotor.CharacterForward;
 
-                    // cache the dash velocity (like the charging velocity)
-                    _dashVelocity = _dashDirection * DashSpeed;
-                    _dashTimeRemaining = DashDuration;
-                    _dashUsed = true;
+                        // inside a Lane zone the direction is the lane's, whatever the input
+                        if (_laneZone != null)
+                            _dashDirection = _laneDirection;
+
+                        // the normal dash was already used: this one costs a charge
+                        if (_dashUsed && _dashCharges > 0)
+                            _dashCharges--;
+
+                        // cache the dash velocity (like the charging velocity)
+                        _dashVelocity = _dashDirection * DashSpeed;
+                        _dashTimeRemaining = DashDuration;
+                        _dashUsed = true;
+                    }
+
                     Sfx.Play(SfxType.Dash);
                     Vfx.PlayTinted(VfxType.DashStart, BallCenter, Quaternion.identity, CurrentPower);
                     Vfx.SetLoop(VfxType.DashTrail, true);
@@ -1031,8 +1230,20 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             case CharacterState.Dashing:
                 {
-                    // keep a little momentum instead of stopping dead
-                    _kinematicMotor.BaseVelocity = _dashDirection * MaxGroundSpeed;
+                    if (_boostActive)
+                    {
+                        // a boost keeps its speed, and the speed limit stays raised for a moment
+                        _kinematicMotor.BaseVelocity = _dashDirection * _boostExitSpeed;
+                        _boostCap = _boostExitSpeed;
+                        _boostMomentumTimer = BoostMomentumTime;
+                        _boostActive = false;
+                    }
+                    else
+                    {
+                        // keep a little momentum instead of stopping dead
+                        _kinematicMotor.BaseVelocity = _dashDirection * MaxGroundSpeed;
+                    }
+
                     _dashCooldownTimer = DashCooldown;
                     Vfx.SetLoop(VfxType.DashTrail, false);
                     break;
@@ -1142,6 +1353,13 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _dashCooldownTimer = 0f;
         _dashVelocity = Vector3.zero;
 
+        _boostRequested = false;
+        _boostActive = false;
+        _boostMomentumTimer = 0f;
+        _laneZone = null;
+        _dashCharges = 0;
+        _dropThroughTimer = 0f;
+
         _groundPoundRequested = false;
         _groundPoundWindupRemaining = 0f;
         _bounceRequested = false;
@@ -1170,7 +1388,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     }
 
     // ------------------------------------------------------------------
-    // POWER-UPS (called by PowerUpPickup)
+    // POWER-UPS (called by ElementGate)
     // ------------------------------------------------------------------
     // Only ONE element at a time: picking a new one replaces the old one.
     // Choose the power you start with here (None = no power). Handy for testing.
@@ -1187,11 +1405,15 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         // Each element gives its own powers:
         //   Fire = dash | Air = double jump + glide | Earth = ground pound | Water = wall jump + vapor (gravity flip)
         hasDash = newPower == PowerUpType.Fire;
+        if (!hasDash) _dashCharges = 0;   // a new power cancels the extra dashes
         hasDoubleJump = newPower == PowerUpType.Air;
         hasGlide = newPower == PowerUpType.Air;
         hasGroundPound = newPower == PowerUpType.Earth;
         hasWallJump = newPower == PowerUpType.Water;
         hasGravityFlip = newPower == PowerUpType.Water;
+
+        // Aether (the dark final-level power) and None (the base ball) turn every ability off above.
+        // When Aether gets its own ability, add a line here, for example:  hasXxx = newPower == PowerUpType.Aether;
 
         // losing the Vapor power while upside down: put the character back on the floor
         if (_gravityFlipped && !hasGravityFlip)
@@ -1206,6 +1428,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // ------------------------------------------------------------------
     public bool IsColliderValidForCollisions(Collider coll)
     {
+        // a one-way platform only exists for us when we are above it (and not dropping through)
+        if (coll.TryGetComponent(out OneWayPlatform oneWay))
+            return oneWay.IsSolidFor(FeetWorldPosition, _dropThroughTimer > 0f);
+
         return true;
     }
 

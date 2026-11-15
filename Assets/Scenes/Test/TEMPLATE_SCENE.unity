@@ -131,6 +131,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Saw (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 4900755283723130562, guid: c1eff9e6a1929ca4fba3cfba135ae136, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 8350666388405283058, guid: c1eff9e6a1929ca4fba3cfba135ae136, type: 3}
       propertyPath: m_LocalPosition.x
       value: 35.09121
@@ -5276,6 +5280,10 @@ PrefabInstance:
     - target: {fileID: 975571811331739608, guid: 9039be070fcb40b40b6f1550d9f311b9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3825988932174648076, guid: 9039be070fcb40b40b6f1550d9f311b9, type: 3}
+      propertyPath: m_Mesh
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 6628918622776514847, guid: 9039be070fcb40b40b6f1550d9f311b9, type: 3}
       propertyPath: m_Name
@@ -35956,6 +35964,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 82ee40e5b2fdea74ebd80e377ecefc10, type: 3}
+--- !u!198 &427746418 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 2510029075224301317, guid: 82ee40e5b2fdea74ebd80e377ecefc10, type: 3}
+  m_PrefabInstance: {fileID: 427746417}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &432731951
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -80316,6 +80329,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8847588536674811109, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -80464,6 +80481,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5287197978028565105, guid: 1433c17baf1c3024ea996b7bcc379569, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 3d9f49f6b741d3647ba7ab0b6120804f, type: 2}
     - target: {fileID: 6501651908148029170, guid: 1433c17baf1c3024ea996b7bcc379569, type: 3}
       propertyPath: m_Name
       value: Ice_Surface
@@ -80614,6 +80635,10 @@ PrefabInstance:
     - target: {fileID: 2126465152332053753, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8847588536674811109, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
+      propertyPath: m_Mesh
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -105278,7 +105303,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 38588394aa389344094f4ad339631d7c, type: 2}
+  - {fileID: 2100000, guid: 956a988ca2ae2a84f9ffd09bb5b3bb6b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -134842,6 +134867,10 @@ PrefabInstance:
       propertyPath: SpawnPoint
       value: 
       objectReference: {fileID: 1047231205}
+    - target: {fileID: 570620120545747241, guid: 44ed39ae2676f304ba12ae3c09dd2b04, type: 3}
+      propertyPath: DeathEffect
+      value: 
+      objectReference: {fileID: 427746418}
     - target: {fileID: 917759301899159064, guid: 44ed39ae2676f304ba12ae3c09dd2b04, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -169087,6 +169116,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8847588536674811109, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -178953,6 +178986,10 @@ PrefabInstance:
     - target: {fileID: 2126465152332053753, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8847588536674811109, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
+      propertyPath: m_Mesh
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -193906,6 +193943,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8847588536674811109, guid: 18fc1f786c5b97c4bb5dc63f3f0f9459, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -208852,6 +208893,10 @@ PrefabInstance:
     - target: {fileID: 4460337672122218045, guid: c1eff9e6a1929ca4fba3cfba135ae136, type: 3}
       propertyPath: m_Name
       value: Saw
+      objectReference: {fileID: 0}
+    - target: {fileID: 4900755283723130562, guid: c1eff9e6a1929ca4fba3cfba135ae136, type: 3}
+      propertyPath: m_Mesh
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 8350666388405283058, guid: c1eff9e6a1929ca4fba3cfba135ae136, type: 3}
       propertyPath: m_LocalPosition.x

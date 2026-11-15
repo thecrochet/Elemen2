@@ -1,3 +1,4 @@
+using KinematicCharacterController;
 using UnityEngine;
 
 // A crusher (like a Mario Thwomp): it waits, shakes as a warning, slams down, rests, then rises.
@@ -6,8 +7,11 @@ using UnityEngine;
 // It does NOT kill by itself: put the Hazard script on the same object, with a trigger collider.
 //
 // SETUP:
-//   - the block object: a trigger collider (Is Trigger) + Hazard + this script
-//     (a kinematic Rigidbody is added automatically: leave it)
+//   - the block object: a trigger collider (Is Trigger) + Hazard + this script + the PhysicsMover component (KCC asset)
+//     (the Rigidbody stays; PhysicsMover makes it kinematic by itself)
+//   - the ball can STAND on the top of the block: add a thin child object with a normal (NOT trigger) Box Collider
+//     on the top face, without Hazard, outside the kill trigger. Because the block is a PhysicsMover, the ball is
+//     carried up and down with it (a plain moving Rigidbody does not carry the ball)
 //   - a CHILD object with the mesh, assigned to "Visual" (only the mesh shakes during the warning)
 //   - make the trigger a bit SMALLER than the picture (about 90%): deaths feel fair
 //   - an optional ParticleSystem as a child, placed at the bottom face of the block, for the impact
@@ -21,8 +25,8 @@ using UnityEngine;
 //   wave speed = distance between blocks / delay step
 // The player must go faster than that speed to stay ahead of the slams:
 //   under 11 = walking is enough, 11 to 16 = needs running or a dash, 16 to 28 = needs the dash
-[RequireComponent(typeof(Rigidbody))]
-public class StompBlock : MonoBehaviour, IResettable
+[RequireComponent(typeof(PhysicsMover))]
+public class StompBlock : MonoBehaviour, IMoverController, IResettable
 {
     // ------------------------------------------------------------------
     // MOVEMENT
@@ -77,8 +81,9 @@ public class StompBlock : MonoBehaviour, IResettable
         Rise
     }
 
-    private Rigidbody _body;
+    private PhysicsMover _mover;
     private Vector3 _startPosition;
+    private Quaternion _startRotation;
     private Vector3 _direction;
     private Vector3 _visualStart;
 
@@ -94,21 +99,14 @@ public class StompBlock : MonoBehaviour, IResettable
     private bool _impactPlayed;     // so the impact effect plays once per slam
     private bool _warnPlayed;       // so the warning sound plays once per cycle
 
-    private void Awake()
-    {
-        _body = GetComponent<Rigidbody>();
-
-        // a kinematic body moves only when WE tell it to (no gravity, no pushing)
-        _body.isKinematic = true;
-        _body.useGravity = false;
-
-        // smooth movement between physics steps
-        _body.interpolation = RigidbodyInterpolation.Interpolate;
-    }
-
     private void Start()
     {
+        // tell the mover that this script decides its movement (the KCC asset then also carries the ball)
+        _mover = GetComponent<PhysicsMover>();
+        _mover.MoverController = this;
+
         _startPosition = transform.position;
+        _startRotation = transform.rotation;
         _direction = SlamDirection.normalized;
 
         if (Visual != null)
@@ -130,18 +128,20 @@ public class StompBlock : MonoBehaviour, IResettable
             RespawnManager.Instance.Unregister(this);
     }
 
-    // The movement runs in the physics step (FixedUpdate), like every moving object that can hurt
-    private void FixedUpdate()
+    // Called by the KCC asset on every simulation step: "where should the block be now?"
+    public void UpdateMovement(out Vector3 goalPosition, out Quaternion goalRotation, float deltaTime)
     {
+        goalRotation = _startRotation;
+
         // only moves while the level clock runs (or after the finish)
         LevelManager level = LevelManager.Instance;
         if (level == null || level.IsClockRunning || level.IsFinished)
-            _time += Time.fixedDeltaTime;
+            _time += deltaTime;
 
         Phase phase;
         float offset = GetOffset(out phase);
 
-        _body.MovePosition(_startPosition + _direction * offset);
+        goalPosition = _startPosition + _direction * offset;
 
         _warning = phase == Phase.Warn;
 

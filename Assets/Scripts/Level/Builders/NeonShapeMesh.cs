@@ -28,13 +28,14 @@ public class NeonShapeMesh : MonoBehaviour
     public enum ShapeType
     {
         Prism,
-        Pyramid
+        Pyramid,
+        Wedge       // a slope: a triangle seen from the side, pushed along Z (see "Wedge Size")
     }
 
     public ShapeType Shape = ShapeType.Prism;
 
     // Number of sides of the base: 6 = hexagon, 4 = square, 3 = triangle
-    [Range(3, 12)] public int Sides = 6;
+    [Range(3, 32)] public int Sides = 6;
 
     // Distance from the center to a corner of the base (in world units, at scale 1)
     public float Radius = 1.5f;
@@ -50,6 +51,11 @@ public class NeonShapeMesh : MonoBehaviour
 
     // Turns the base in degrees. For a square pyramid, 45 puts its flat sides along the axes.
     public float RotationOffset = 0f;
+
+    // WEDGE ONLY: Width (X) x Height (Y) x Depth (Z). The slope rises toward +X.
+    // 2 x 2 x 2 is a 45 degree slope. The pivot is at the bottom, centered in X and Z.
+    // Flip the slope by setting the object's Scale X to -1 on the prefab ROOT's child, or rotate it 180 around Y.
+    public Vector3 WedgeSize = new Vector3(2f, 2f, 2f);
 
     [Header("Colliders")]
     // Resize the Box Collider of this object to fit the row
@@ -87,6 +93,12 @@ public class NeonShapeMesh : MonoBehaviour
         List<Vector3> normals = new List<Vector3>();
         List<Vector3> edgeData = new List<Vector3>();
         List<int> triangles = new List<int>();
+
+        if (Shape == ShapeType.Wedge)
+        {
+            BuildWedge(meshFilter);
+            return;
+        }
 
         // the corners of the base polygon (on the floor, around the center)
         Vector3[] baseCorners = new Vector3[Sides];
@@ -138,6 +150,70 @@ public class NeonShapeMesh : MonoBehaviour
             DestroyMesh(old);
 
         FitColliders(mesh, (Count - 1) * step + shapeWidth, maxZ - minZ);
+    }
+
+    // A slope: bottom, a vertical wall on the +X side, the sloped top, and a triangle on the front and the back.
+    private void BuildWedge(MeshFilter meshFilter)
+    {
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector3> normals = new List<Vector3>();
+        List<Vector3> edgeData = new List<Vector3>();
+        List<int> triangles = new List<int>();
+
+        float w = Mathf.Max(WedgeSize.x, 0.01f) * 0.5f;
+        float h = Mathf.Max(WedgeSize.y, 0.01f);
+        float d = Mathf.Max(WedgeSize.z, 0.01f) * 0.5f;
+
+        Vector3 lowFront = new Vector3(-w, 0f, -d);
+        Vector3 lowBack = new Vector3(-w, 0f, d);
+        Vector3 rightFront = new Vector3(w, 0f, -d);
+        Vector3 rightBack = new Vector3(w, 0f, d);
+        Vector3 topFront = new Vector3(w, h, -d);
+        Vector3 topBack = new Vector3(w, h, d);
+
+        Vector3 corner0 = new Vector3(1, 0, 0);
+        Vector3 corner1 = new Vector3(0, 1, 0);
+        Vector3 corner2 = new Vector3(0, 0, 1);
+
+        // the two triangles (front faces the camera, back is behind): all 3 edges drawn
+        AddTriangle(lowFront, rightFront, topFront, corner0, corner1, corner2, Vector3.back, vertices, normals, edgeData, triangles);
+        AddTriangle(lowBack, rightBack, topBack, corner0, corner1, corner2, Vector3.forward, vertices, normals, edgeData, triangles);
+
+        // the bottom, the vertical wall and the slope
+        AddQuad(lowFront, rightFront, rightBack, lowBack, Vector3.down, vertices, normals, edgeData, triangles);
+        AddQuad(rightFront, rightBack, topBack, topFront, Vector3.right, vertices, normals, edgeData, triangles);
+        AddQuad(lowFront, lowBack, topBack, topFront, new Vector3(-h, w * 2f, 0f), vertices, normals, edgeData, triangles);
+
+        Mesh mesh = new Mesh();
+        mesh.name = MeshName;
+        mesh.hideFlags = HideFlags.HideAndDontSave;
+        mesh.SetVertices(vertices);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(1, edgeData);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateBounds();
+
+        Mesh old = meshFilter.sharedMesh;
+        meshFilter.sharedMesh = mesh;
+
+        if (old != null && old.name == MeshName)
+            DestroyMesh(old);
+
+        FitColliders(mesh, w * 2f, d * 2f);
+    }
+
+    // A square face made of 2 triangles, the diagonal cut is not drawn.
+    // Corners in order: b0 and b1 on one edge, t1 next to b1, t0 next to b0.
+    private static void AddQuad(Vector3 b0, Vector3 b1, Vector3 t1, Vector3 t0, Vector3 outward,
+                                List<Vector3> vertices, List<Vector3> normals, List<Vector3> edgeData, List<int> triangles)
+    {
+        AddTriangle(b0, b1, t1,
+                    new Vector3(1, 1, 0), new Vector3(0, 1, 0), new Vector3(0, 1, 1),
+                    outward, vertices, normals, edgeData, triangles);
+
+        AddTriangle(b0, t1, t0,
+                    new Vector3(1, 0, 1), new Vector3(0, 1, 1), new Vector3(0, 0, 1),
+                    outward, vertices, normals, edgeData, triangles);
     }
 
     // ------------------------------------------------------------------
@@ -247,7 +323,7 @@ public class NeonShapeMesh : MonoBehaviour
     // ------------------------------------------------------------------
     private void FitColliders(Mesh mesh, float totalWidth, float depth)
     {
-        if (FitBoxCollider && TryGetComponent(out BoxCollider box))
+        if (Shape != ShapeType.Wedge && FitBoxCollider && TryGetComponent(out BoxCollider box))
         {
             float colliderHeight = Height * ColliderHeight;
             box.size = new Vector3(totalWidth, colliderHeight, depth);
@@ -255,7 +331,7 @@ public class NeonShapeMesh : MonoBehaviour
         }
 
         // a Mesh Collider can only follow a single shape (a convex collider would fill the gaps of a row)
-        if (Count == 1 && TryGetComponent(out MeshCollider meshCollider))
+        if ((Count == 1 || Shape == ShapeType.Wedge) && TryGetComponent(out MeshCollider meshCollider))
         {
             meshCollider.sharedMesh = null;
             meshCollider.sharedMesh = mesh;
@@ -285,6 +361,11 @@ public class NeonShapeMesh : MonoBehaviour
     // The materials: the first material that uses the "Elemento/NeonShape" shader is picked automatically.
     private static Material FindNeonMaterial()
     {
+        Material preferred = ElementoMaterials.Find("M_Level_Shape", "Elemento/NeonShape");
+
+        if (preferred != null)
+            return preferred;
+
         foreach (string guid in AssetDatabase.FindAssets("t:Material"))
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
@@ -340,6 +421,30 @@ public class NeonShapeMesh : MonoBehaviour
         triggerCollider.size = new Vector3(2f, 0.5f, 1.6f);   // stays inside the hexagon
 
         trigger.AddComponent<BouncePad>();
+
+        shape.Build();
+        Selection.activeGameObject = go;
+    }
+
+    // A 45 degree slope for the foundation: a solid wedge, 2 x 2 x 2, on a convex Mesh Collider.
+    // The player walks up it (the controller allows slopes up to 60 degrees).
+    [MenuItem("GameObject/Elemento/Level/Slope 45", false, 13)]
+    private static void CreateSlope45(MenuCommand command)
+    {
+        GameObject go = CreateShapeObject("Slope_45", command);
+
+        // a slope is safe ground: use the normal level shape material, not the red pulsing one
+        Material safe = ElementoMaterials.Find("M_Level_Shape", "Elemento/NeonShape");
+
+        if (safe != null)
+            go.GetComponent<MeshRenderer>().sharedMaterial = safe;
+
+        NeonShapeMesh shape = go.AddComponent<NeonShapeMesh>();
+        shape.Shape = ShapeType.Wedge;
+        shape.WedgeSize = new Vector3(2f, 2f, 2f);
+
+        MeshCollider solid = go.AddComponent<MeshCollider>();
+        solid.convex = true;
 
         shape.Build();
         Selection.activeGameObject = go;

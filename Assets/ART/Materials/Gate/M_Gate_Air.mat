@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Gate_Air
-  m_Shader: {fileID: 4800000, guid: cc006e36042097543ae00d9163b2031d, type: 3}
+  m_Shader: {fileID: 4800000, guid: cdbd2ce2b84681c43bd0e6eb605cf4a8, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
@@ -30,6 +30,7 @@ Material:
     - _FillAlpha: 0.14
     - _Flash: 0
     - _FrameWidth: 0.04
+    - _Halo: 0
     - _Opacity: 1
     - _Scale: 1
     - _Speed: 1

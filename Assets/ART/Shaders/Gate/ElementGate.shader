@@ -5,12 +5,12 @@
 // The gate is a tall see-through capsule that the ball runs THROUGH. Put it on a Quad that faces the camera.
 // You can scale the Quad as you like (for example 1.5 x 3.4): the shader reads the scale, so the shape never stretches.
 //
-//   Fire    flame chevrons rising upward
+//   Fire    tongues of flame rising inside the gate (hot core)
 //   Earth   cracked rock facets, with light pulsing in the cracks
 //   Water   ripples spreading out from the middle
 //   Air     a slow spiral
 //   Aether  a dark void with small lights orbiting it (the rare, final-level power)
-//   Base    a plain ring with ticks (electricity)
+//   Base    electricity: a hot core and jagged arcs that jump around (like the Base Spark ball)
 //
 // There are no particles in here: only a little motion drawn by the shader.
 // "Flash" is raised for a moment by the ElementGate script when the ball crosses the gate.
@@ -35,6 +35,7 @@ Shader "Elemento/Gate/ElementGate"
         _Scale ("Pattern Scale", Range(0.5, 4)) = 1
 
         [Header(Output)]
+        _Halo ("Soft Glow Outside The Frame", Range(0, 1)) = 0.3
         _Flash ("Flash (set by the script)", Range(0, 3)) = 0
         _Opacity ("Opacity", Range(0, 1)) = 1
     }
@@ -69,6 +70,7 @@ Shader "Elemento/Gate/ElementGate"
                 float _FrameWidth;
                 float _Speed;
                 float _Scale;
+                float _Halo;
                 float _Flash;
                 float _Opacity;
             CBUFFER_END
@@ -155,6 +157,48 @@ Shader "Elemento/Gate/ElementGate"
                 edge = sqrt(second) - sqrt(best);
             }
 
+            // value noise (smooth random), used by the flames
+            float VNoise(float2 p)
+            {
+                float2 i = floor(p);
+                float2 f = frac(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash22(i).x;
+                float b = hash22(i + float2(1.0, 0.0)).x;
+                float c = hash22(i + float2(0.0, 1.0)).x;
+                float e = hash22(i + float2(1.0, 1.0)).x;
+                return lerp(lerp(a, b, f.x), lerp(c, e, f.x), f.y);
+            }
+
+            // three layers of noise: big shapes plus finer detail
+            float Fbm(float2 p)
+            {
+                return VNoise(p) * 0.55 + VNoise(p * 2.0 + 7.3) * 0.3 + VNoise(p * 4.0 + 3.1) * 0.15;
+            }
+
+            // ONE jagged lightning arc from the middle of the gate outward (the Base look).
+            // "seed" makes each arc different, "t" makes it jump and flicker.
+            float Bolt(float2 p, float seed, float t, float reach)
+            {
+                // a few times per second the arc picks a new direction, and sometimes it is switched off
+                float jumpIndex = floor(t * 3.0 + seed * 7.0);
+                float2 rnd = hash22(float2(seed, jumpIndex));
+                float ang = rnd.x * GATE_TAU;
+                float alive = step(0.2, rnd.y);
+
+                float2 dir = float2(cos(ang), sin(ang));
+                float along = dot(p, dir);                    // distance along the arc
+                float side = dot(p, float2(-dir.y, dir.x));   // distance sideways from a straight line
+
+                // jagged: the arc wobbles sideways, more toward its tip
+                float wobble = sin(along * 24.0 + seed * 40.0 + t * 30.0) * 0.03
+                             + sin(along * 57.0 - t * 17.0 + seed * 13.0) * 0.012;
+                float dd = side - wobble * saturate(along * 4.0);
+
+                float mask = step(0.0, along) * (1.0 - smoothstep(reach * 0.6, reach, along));
+                return (Stroke(dd, 0.007) + Soft(dd, 0.035) * 0.3) * mask * alive;
+            }
+
             float4 frag(Varyings IN) : SV_Target
             {
                 float2 p = IN.p;
@@ -214,17 +258,31 @@ Shader "Elemento/Gate/ElementGate"
 
                     glow += _ColorA.rgb * Soft(length(p * float2(1.0, 0.5)), 0.12) * 0.12 * inside;
                 #elif defined(_ELEMENT_BASE)
-                    // a plain ring with ticks around it (electricity)
+                    // electricity: a hot core, five jagged arcs that jump around, and a quiet ring with ticks (like the Base Spark ball)
+                    float core = Soft(length(p * float2(1.0, 0.5)), 0.06);
+                    glow += _ColorB.rgb * core * inside;
+
+                    float arcs = 0.0;
+                    [unroll]
+                    for (int k = 0; k < 5; k++)
+                        arcs += Bolt(p, (float)k + 1.0, t, 1.0);
+
+                    glow += lerp(_ColorA.rgb, _ColorB.rgb, 0.4) * saturate(arcs) * inside;
+
                     float tickTurn = atan2(p.y * 0.55, p.x) / GATE_TAU;
                     float tickOn = step(0.5, frac(tickTurn * 24.0 + t * 0.1));
-                    glow += _ColorA.rgb * Stroke(d + 0.09, 0.012) * tickOn;
+                    glow += _ColorA.rgb * Stroke(d + 0.09, 0.012) * tickOn * 0.5;
                 #else
-                    // FIRE: flame chevrons climbing upward, fading toward the top
-                    float w = q.y * 2.2 + abs(q.x) * 2.6 - t * 0.8 + sin(q.y * 5.0 + t * 3.0) * 0.06;
-                    float chevron = Stroke(frac(w) - 0.5, 0.1);
-                    float climb = lerp(1.0, 0.25, saturate(p.y * 0.5 + 0.5));
-                    glow += _ColorA.rgb * chevron * climb * inside;
-                    glow += _ColorB.rgb * Stroke(frac(w) - 0.5, 0.035) * climb * 0.8 * inside;
+                    // FIRE: tongues of flame licking upward inside the gate. Orange body, hot yellow-white core, no arrows.
+                    float2 fq = float2(q.x * 2.2, q.y * 1.1 - t * 0.9);
+                    float flameNoise = Fbm(fq * 1.6);
+                    float rise = saturate(p.y * 0.5 + 0.5);                          // 0 at the bottom, 1 at the top
+                    float narrow = 1.0 - saturate(abs(p.x) / max(hw, 0.01)) * 0.6;   // the flame is thinner at the sides
+                    float body = saturate((flameNoise * 1.6 - rise * 0.9) * narrow + 0.1);
+                    float flame = smoothstep(0.25, 0.7, body);
+                    float hot = smoothstep(0.55, 0.95, body);
+                    glow += _ColorA.rgb * flame * inside * 1.1;
+                    glow += _ColorB.rgb * hot * inside * 0.9;
                 #endif
 
                 // ---------------- BODY ----------------
@@ -232,7 +290,9 @@ Shader "Elemento/Gate/ElementGate"
 
                 // ---------------- FRAME ----------------
                 float frame = Stroke(d, _FrameWidth * 0.5);
-                float halo = Soft(max(d, 0.0), 0.1) * 0.3;
+                // the glow outside the frame fades to nothing before the edge of the Quad, so there is no square outline
+                float edgeFade = saturate((IN.aspect - abs(p.x)) / 0.12) * saturate((1.0 - abs(p.y)) / 0.12);
+                float halo = Soft(max(d, 0.0), 0.1) * _Halo * edgeFade;
                 res.rgb += _ColorA.rgb * (frame * 1.3 + halo);
                 res.rgb += glow;
 

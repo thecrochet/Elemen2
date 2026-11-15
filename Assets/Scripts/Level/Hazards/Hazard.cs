@@ -15,8 +15,11 @@ public class Hazard : MonoBehaviour
 
         if (HitEffect != null)
         {
-            // the closest point of the hazard to the ball = where the spike touched it
-            HitEffect.transform.position = other.ClosestPoint(transform.position);
+            // where the hazard touched the ball: the point of THIS hazard's collider closest to the ball.
+            // On a row of 6 spikes this is the spike that was touched, not the middle of the row.
+            Collider own = GetComponent<Collider>();
+            Vector3 ballCenter = other.bounds.center;
+            HitEffect.transform.position = own != null ? own.ClosestPoint(ballCenter) : ballCenter;
             HitEffect.Play(true);
         }
 

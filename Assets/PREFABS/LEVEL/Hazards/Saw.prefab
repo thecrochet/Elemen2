@@ -228,6 +228,7 @@ MonoBehaviour:
   Count: 1
   Spacing: 0
   RotationOffset: 0
+  WedgeSize: {x: 2, y: 2, z: 2}
   FitBoxCollider: 1
   ColliderHeight: 1
 --- !u!1001 &1799544540196849950

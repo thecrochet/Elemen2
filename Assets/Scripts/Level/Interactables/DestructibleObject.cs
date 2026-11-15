@@ -52,6 +52,20 @@ public class DestructibleObject : MonoBehaviour, IResettable
     // It plays when the object breaks. No object is created while playing.
     public ParticleSystem BreakEffect;
 
+    [Header("Cracks (optional)")]
+    // A renderer (usually a child quad "Cracks" with the CrackOverlay material) that shows the damage.
+    // Leave empty for a block with no cracks.
+    public Renderer CrackRenderer;
+
+    // The block starts already cracked: 0 = clean, 1..3 = the crack stage shown from the start.
+    // A block with HitsToBreak 1 and PreCracked 2 looks damaged but still breaks with ONE hit.
+    [Range(0, 3)] public int PreCracked = 0;
+
+    // The most advanced crack picture (the overlay has 3 stages)
+    private const int MaxStage = 3;
+    private static readonly int StageId = Shader.PropertyToID("_Stage");
+    private MaterialPropertyBlock _crackBlock;
+
     // The player asks this to know if the block under it just broke (to keep slamming through)
     public bool IsBroken
     {
@@ -90,6 +104,7 @@ public class DestructibleObject : MonoBehaviour, IResettable
                 renderers.Add(r);
         }
 
+        // the crack picture must stay out of the "hide when broken" list handling below
         _renderers = renderers.ToArray();
         _colliders = GetComponentsInChildren<Collider>(true);
 
@@ -105,11 +120,15 @@ public class DestructibleObject : MonoBehaviour, IResettable
 
     private void Start()
     {
+        UpdateCracks();
+
         if (RespawnManager.Instance != null)
             RespawnManager.Instance.Register(this);
 
         // Update only runs while a chain hit is waiting (ScheduleChain turns it on)
         enabled = false;
+
+        UpdateCracks();
     }
 
     private void OnDestroy()
@@ -162,6 +181,8 @@ public class DestructibleObject : MonoBehaviour, IResettable
         if (_isBroken) return;
 
         _hitsTaken++;
+
+        UpdateCracks();
 
         if (_hitsTaken >= HitsToBreak)
             Break(source, direction);
@@ -238,9 +259,33 @@ public class DestructibleObject : MonoBehaviour, IResettable
         enabled = false;
 
         SetVisibleAndSolid(!_isBroken);
+        UpdateCracks();
 
         if (BreakEffect != null)
             BreakEffect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+    }
+
+    // The crack stage: the biggest of "starts cracked" and "how damaged it is now" (3 stages at most)
+    private int CurrentStage()
+    {
+        int fromHits = 0;
+
+        if (_hitsTaken > 0 && HitsToBreak > 0)
+            fromHits = Mathf.CeilToInt(MaxStage * (float)_hitsTaken / HitsToBreak);
+
+        return Mathf.Clamp(Mathf.Max(PreCracked, fromHits), 0, MaxStage);
+    }
+
+    private void UpdateCracks()
+    {
+        if (CrackRenderer == null) return;
+
+        if (_crackBlock == null)
+            _crackBlock = new MaterialPropertyBlock();
+
+        CrackRenderer.GetPropertyBlock(_crackBlock);
+        _crackBlock.SetFloat(StageId, CurrentStage());
+        CrackRenderer.SetPropertyBlock(_crackBlock);
     }
 
     private void SetVisibleAndSolid(bool value)

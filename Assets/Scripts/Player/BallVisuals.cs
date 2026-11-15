@@ -36,6 +36,16 @@ public class BallVisuals : MonoBehaviour
     [FormerlySerializedAs("DoubleJumpMaterial")] public Material AirMaterial;
     [FormerlySerializedAs("GroundPoundMaterial")] public Material EarthMaterial;
     [FormerlySerializedAs("WallJumpMaterial")] public Material WaterMaterial;
+    public Material AetherMaterial;
+
+    // ------------------------------------------------------------------
+    // CHARGE PULSE: the ball pulses while it holds extra dashes (from a Dash Charge zone)
+    // ------------------------------------------------------------------
+    // How much the ball grows and shrinks (0.12 = 12 percent). 0 = no pulse.
+    public float PulseAmount = 0.12f;
+
+    // Pulses per second (about 2 = calm, 4 = urgent)
+    public float PulseSpeed = 3f;
 
     // ------------------------------------------------------------------
     // OPTIONAL: a parachute object (child of the character) shown while gliding
@@ -49,11 +59,13 @@ public class BallVisuals : MonoBehaviour
     private Quaternion _rollRotation;
     private PowerUpType _shownPower;
     private bool _wasDead;
+    private Vector3 _baseScale;
 
     private void Start()
     {
         _lastPosition = transform.position;
         _rollRotation = BallMesh.rotation;
+        _baseScale = BallMesh.localScale;
 
         _shownPower = Player.CurrentPower;
         ApplyMaterial(_shownPower);
@@ -89,6 +101,22 @@ public class BallVisuals : MonoBehaviour
         UpdateRolling();
         UpdateMaterial();
         UpdateParachute();
+        UpdateChargePulse();
+    }
+
+    // a soft heartbeat while the ball holds extra dashes (only the visual sphere is scaled, never the collision)
+    private void UpdateChargePulse()
+    {
+        if (PulseAmount <= 0f || Player.DashCharges <= 0)
+        {
+            if (BallMesh.localScale != _baseScale)
+                BallMesh.localScale = _baseScale;
+            return;
+        }
+
+        // 0..1 with a quick rise and a slower fall, like a heartbeat
+        float wave = Mathf.Abs(Mathf.Sin(Time.time * PulseSpeed * Mathf.PI));
+        BallMesh.localScale = _baseScale * (1f + PulseAmount * wave);
     }
 
     // show the parachute only while the character glides
@@ -167,6 +195,9 @@ public class BallVisuals : MonoBehaviour
                 break;
             case PowerUpType.Water:
                 material = WaterMaterial;
+                break;
+            case PowerUpType.Aether:
+                material = AetherMaterial;
                 break;
         }
 

@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Level_Cyan_Thin
-  m_Shader: {fileID: 4800000, guid: 7a59ebab19b88254fb6311f31ea4bb93, type: 3}
+  m_Shader: {fileID: 4800000, guid: 8dfff0dfd02d18c47a1bbdb30e2f1af8, type: 3}
   m_Parent: {fileID: 2100000, guid: 956a988ca2ae2a84f9ffd09bb5b3bb6b, type: 2}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
