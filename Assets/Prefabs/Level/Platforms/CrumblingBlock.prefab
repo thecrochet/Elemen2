@@ -252,7 +252,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3187868349435250151, guid: e0c737c4b9e40c54aaef1687c8641ce5, type: 3}
       propertyPath: m_Name
-      value: CrumblingBlockFX
+      value: FX_Crumble
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

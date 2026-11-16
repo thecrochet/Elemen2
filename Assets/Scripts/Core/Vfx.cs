@@ -9,8 +9,8 @@ using UnityEngine;
 //
 // SETUP (no wiring at all):
 //   1) make an empty object "Vfx" with this script (put it at position 0,0,0, rotation 0,0,0)
-//   2) under it, create one Particle System per effect and NAME it exactly like the list below
-//      (Jump, Land, DashTrail, AmbientFire...). The script finds them by name when the game starts.
+//   2) under it, create one Particle System per effect and NAME it FX_ + the name in the list below
+//      (FX_Jump, FX_Land, FX_DashTrail, FX_AmbientFire...). A name without FX_ is ignored (a warning shows in the editor). The script finds them by name when the game starts.
 //   3) drag the Ball (the mesh) into "Follow"
 //   A name that is missing is just skipped, so you can build the effects one at a time.
 //   If an effect has several layers (a ring + sparks), make the extra layers CHILDREN of the named
@@ -136,7 +136,20 @@ public class Vfx : MonoBehaviour
 
         for (int i = 0; i < all.Length; i++)
         {
-            if (!System.Enum.TryParse(all[i].name, true, out VfxType type)) continue;
+            // the name must be FX_ + the effect name (FX_Jump, FX_Land, FX_DashTrail...)
+            string systemName = all[i].name;
+
+            if (!systemName.StartsWith("FX_"))
+            {
+#if UNITY_EDITOR
+                // a plain name like "Jump" is no longer used: tell the developer (editor only)
+                if (System.Enum.TryParse(systemName, true, out VfxType _))
+                    Debug.LogWarning("Vfx: '" + systemName + "' is ignored, rename it FX_" + systemName, all[i]);
+#endif
+                continue;
+            }
+
+            if (!System.Enum.TryParse(systemName.Substring(3), true, out VfxType type)) continue;
 
             int index = (int)type;
             if (_roots[index] != null) continue;

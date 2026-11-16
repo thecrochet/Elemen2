@@ -32,7 +32,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8791848383086324141}
-  - {fileID: 2127015068987784933}
+  - {fileID: 4041597966349107611}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &856719772746465772
@@ -72,9 +72,9 @@ MonoBehaviour:
   FlashGate: 1
   FlashTime: 0.35
   FlashStrength: 1.2
-  CrossEffect: {fileID: 772461019898676334}
-  BurstAtBall: 1
-  PlayCollectBurst: 0
+  CrossEffect: {fileID: 3398628048224975632}
+  BurstAtBall: 0
+  PlayCollectBurst: 1
   GateRenderer: {fileID: 6647110729993184086}
 --- !u!1 &4633748412945063013
 GameObject:
@@ -166,7 +166,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1001 &1992307720937414915
+--- !u!1001 &4482232068209335933
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -216,20 +216,20 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7308326405901647732, guid: 8050e3a54374224428d90738cd8c7dbb, type: 3}
       propertyPath: m_Name
-      value: PowerUpCollect
+      value: FX_GateCross
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8050e3a54374224428d90738cd8c7dbb, type: 3}
---- !u!198 &772461019898676334 stripped
+--- !u!198 &3398628048224975632 stripped
 ParticleSystem:
   m_CorrespondingSourceObject: {fileID: 1233507346506556781, guid: 8050e3a54374224428d90738cd8c7dbb, type: 3}
-  m_PrefabInstance: {fileID: 1992307720937414915}
+  m_PrefabInstance: {fileID: 4482232068209335933}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &2127015068987784933 stripped
+--- !u!4 &4041597966349107611 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 442115543623098342, guid: 8050e3a54374224428d90738cd8c7dbb, type: 3}
-  m_PrefabInstance: {fileID: 1992307720937414915}
+  m_PrefabInstance: {fileID: 4482232068209335933}
   m_PrefabAsset: {fileID: 0}

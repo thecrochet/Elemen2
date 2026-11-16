@@ -67,7 +67,7 @@ public class Diamond : MonoBehaviour, IResettable
         if (!other.TryGetComponent(out CC_ELEMENTO _)) return;
 
         _held = true;
-        Sfx.Play(SfxType.PowerUp);
+        Sfx.Play(SfxType.DiamondCollect);
 
         if (CollectEffect != null)
         {

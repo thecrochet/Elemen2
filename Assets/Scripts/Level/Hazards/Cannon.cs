@@ -116,6 +116,8 @@ public class Cannon : MonoBehaviour, IResettable
         {
             _lastShot = shot;
 
+            Sfx.PlayAt(SfxType.CannonShoot, transform.position);
+
             if (ShootEffect != null)
                 ShootEffect.Play(true);
         }

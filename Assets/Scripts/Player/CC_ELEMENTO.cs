@@ -235,6 +235,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     private DashZone _laneZone;
     private Vector3 _laneDirection;
     private int _dashCharges;
+    private float _superDashMultiplier = 1f;   // > 1 = the next dash is longer (from a Super Dash zone)
 
     private float _boostMomentumTimer;      // while > 0 the speed limit is raised to _boostCap
     private float _boostCap;
@@ -550,8 +551,9 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         if (_dashCooldownTimer <= 0f)
                             _dashUsed = false;
 
-                        // extra dashes from a Charge zone only last until you land
+                        // extra dashes and the super dash only last until you land
                         _dashCharges = 0;
+                        _superDashMultiplier = 1f;
                     }
                     else
                     {
@@ -886,9 +888,17 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _dashCharges = Mathf.Max(_dashCharges, Mathf.Max(count, 0));
     }
 
+    // Super Dash: the NEXT dash goes "multiplier" times further (2 = double). Needs the Fire power.
+    public void AddSuperDash(float multiplier)
+    {
+        if (!hasDash) return;
+        _superDashMultiplier = Mathf.Max(_superDashMultiplier, multiplier);
+    }
+
+    // How many "loaded" dashes the ball holds (extra dashes + a super dash). Used for the pulse.
     public int DashCharges
     {
-        get { return _dashCharges; }
+        get { return _dashCharges + (_superDashMultiplier > 1f ? 1 : 0); }
     }
 
     // True while a Lane zone forces the dash direction
@@ -1183,6 +1193,14 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         // cache the dash velocity (like the charging velocity)
                         _dashVelocity = _dashDirection * DashSpeed;
                         _dashTimeRemaining = DashDuration;
+
+                        // a super dash: the speed stays the same, it just lasts longer (so it goes further), once
+                        if (_superDashMultiplier > 1f)
+                        {
+                            _dashTimeRemaining = DashDuration * _superDashMultiplier;
+                            _superDashMultiplier = 1f;
+                        }
+
                         _dashUsed = true;
                     }
 
@@ -1358,6 +1376,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _boostMomentumTimer = 0f;
         _laneZone = null;
         _dashCharges = 0;
+        _superDashMultiplier = 1f;
         _dropThroughTimer = 0f;
 
         _groundPoundRequested = false;
@@ -1405,7 +1424,11 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         // Each element gives its own powers:
         //   Fire = dash | Air = double jump + glide | Earth = ground pound | Water = wall jump + vapor (gravity flip)
         hasDash = newPower == PowerUpType.Fire;
-        if (!hasDash) _dashCharges = 0;   // a new power cancels the extra dashes
+        if (!hasDash)
+        {
+            _dashCharges = 0;   // a new power cancels the extra dashes
+            _superDashMultiplier = 1f;
+        }
         hasDoubleJump = newPower == PowerUpType.Air;
         hasGlide = newPower == PowerUpType.Air;
         hasGroundPound = newPower == PowerUpType.Earth;

@@ -8,6 +8,7 @@ using UnityEditor;
 // FOUR MODES (field "Mode"):
 //   Hint   = only the look. The zone has a Direction and knows when the player is inside (PlayerInside).
 //   Lane   = while the ball is inside, its dash always goes along the arrows (needs the Fire power). Leave the zone: free dash again.
+//   SuperDash = entering loads the NEXT dash to go Super Dash Multiplier times further (2 = double). Until the ball lands or dies. Needs the Fire power.
 //   Charge = entering gives extra dashes (Charge Count, 1 = one more dash). They last until the ball lands or dies. Needs the Fire power.
 //   Boost = the DASH RING. The moment the ball enters, it is thrown along the arrows at Boost Speed for Boost Time,
 //           like a dash (no gravity, it needs no power), and the dash is given back. When the boost ends the ball KEEPS
@@ -28,13 +29,18 @@ public class DashZone : MonoBehaviour
         Hint,
         Boost,
         Lane,
-        Charge
+        Charge,
+        SuperDash
     }
 
     public ZoneMode Mode = ZoneMode.Hint;
 
     // Width (along the arrows) and height of the zone, in world units
     public Vector2 Size = new Vector2(6f, 3f);
+
+    [Header("Super Dash mode only")]
+    // How much further the next dash goes (2 = double: about 8.4 units instead of 4.2)
+    public float SuperDashMultiplier = 2f;
 
     [Header("Charge mode only")]
     // How many extra dashes the zone gives (on top of the normal one)
@@ -80,6 +86,7 @@ public class DashZone : MonoBehaviour
     {
         Size = new Vector2(Mathf.Max(0.5f, Size.x), Mathf.Max(0.5f, Size.y));
         ChargeCount = Mathf.Clamp(ChargeCount, 1, 5);
+        SuperDashMultiplier = Mathf.Clamp(SuperDashMultiplier, 1.5f, 4f);
 
         if (TryGetComponent(out BoxCollider box))
         {
@@ -103,17 +110,29 @@ public class DashZone : MonoBehaviour
         PlayerInside = true;
 
         if (Mode == ZoneMode.Lane)
+        {
             player.EnterLane(this, Direction);
+            Sfx.PlayAt(SfxType.LaneEnter, transform.position);
+        }
+
+        if (Mode == ZoneMode.SuperDash)
+        {
+            player.AddSuperDash(SuperDashMultiplier);
+            Sfx.Play(SfxType.ChargeGain);
+            PlayEffect(other.bounds.center);
+        }
 
         if (Mode == ZoneMode.Charge)
         {
             player.AddDashCharge(ChargeCount);
+            Sfx.Play(SfxType.ChargeGain);
             PlayEffect(other.bounds.center);
         }
 
         if (Mode == ZoneMode.Boost)
         {
             player.BoostLaunch(Direction, BoostSpeed, BoostTime, ExitSpeed);
+            Sfx.Play(SfxType.DashBoost);
 
             PlayEffect(other.bounds.center);
         }
@@ -155,6 +174,17 @@ public class DashZone : MonoBehaviour
         zone.gameObject.name = "DashLane";
         zone.Mode = ZoneMode.Lane;
         zone.Size = new Vector2(8f, 3f);
+        zone.Apply();
+    }
+
+    [MenuItem("GameObject/Elemento/Interactables/Dash Super", false, 34)]
+    private static void CreateDashSuper(MenuCommand command)
+    {
+        CreateDashZone(command);
+        DashZone zone = Selection.activeGameObject.GetComponent<DashZone>();
+        zone.gameObject.name = "DashSuper";
+        zone.Mode = ZoneMode.SuperDash;
+        zone.Size = new Vector2(2f, 2f);
         zone.Apply();
     }
 

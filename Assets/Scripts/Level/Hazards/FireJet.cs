@@ -99,6 +99,13 @@ public class FireJet : MonoBehaviour, IResettable
 
         _phase = phase;
 
+        // sounds: only when the phase really changes (not at the start or after a respawn)
+        if (!force)
+        {
+            if (phase == Phase.Warn) Sfx.PlayAt(SfxType.FireJetWarn, transform.position);
+            else if (phase == Phase.On) Sfx.PlayAt(SfxType.FireJetOn, transform.position);
+        }
+
         if (KillZone != null)
             KillZone.enabled = phase == Phase.On;
 

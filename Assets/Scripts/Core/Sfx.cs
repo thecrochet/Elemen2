@@ -23,7 +23,23 @@ public enum SfxType
     CrumbleWarn,
     CrumbleFall,
     StompWarn,
-    StompImpact
+    StompImpact,
+
+    // added in Kit 7 (always add new events at the END of this list)
+    FireJetWarn,
+    FireJetOn,
+    LeaperWarn,
+    LeaperLeap,
+    LeaperSplash,
+    DashBoost,
+    LaneEnter,
+    ChargeGain,
+    GateCross,
+    DiamondCollect,
+    AtomCollect,
+    CannonShoot,
+    HazardHit,
+    CrackHit
 }
 
 // The settings of ONE sound event (it shows as one line in the Inspector list)
@@ -158,13 +174,37 @@ public class Sfx : MonoBehaviour
         PlayInternal(type, closeness * closeness, pan);
     }
 
+    // A new event with no clip yet plays the sound it used before, so nothing goes silent while you add clips
+    private static SfxType FallbackOf(SfxType type)
+    {
+        switch (type)
+        {
+            case SfxType.GateCross:
+            case SfxType.DiamondCollect:
+            case SfxType.AtomCollect:
+            case SfxType.ChargeGain:
+                return SfxType.PowerUp;
+            default:
+                return type;
+        }
+    }
+
     private void PlayInternal(SfxType type, float volumeScale, float pan)
     {
         int index = (int)type;
         if (index < 0 || index >= _entries.Length) return;
 
         SfxEntry entry = _entries[index];
-        if (entry == null || entry.Clips == null || entry.Clips.Length == 0) return;
+
+        if (entry == null || entry.Clips == null || entry.Clips.Length == 0)
+        {
+            // no clip yet for this event: use the sound of the older event it replaces (one step only)
+            SfxType fallback = FallbackOf(type);
+            if (fallback != type)
+                PlayInternal(fallback, volumeScale, pan);
+
+            return;
+        }
 
         // the same sound can't repeat too fast
         float now = Time.unscaledTime;

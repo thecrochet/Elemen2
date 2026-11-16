@@ -54,14 +54,23 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 0fdaff6536385d64d8f9b7a3394d7466, type: 2}
     - target: {fileID: 7300204536271837889, guid: e107f6d50b05af044b8754266219e64f, type: 3}
       propertyPath: m_Name
-      value: ElementGatBase Variant
+      value: ElementGate_Aether
       objectReference: {fileID: 0}
     - target: {fileID: 8344930446883673924, guid: e107f6d50b05af044b8754266219e64f, type: 3}
       propertyPath: Element
       value: 5
       objectReference: {fileID: 0}
+    - target: {fileID: 8344930446883673924, guid: e107f6d50b05af044b8754266219e64f, type: 3}
+      propertyPath: CrossEffect
+      value: 
+      objectReference: {fileID: 2573032124897447557}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e107f6d50b05af044b8754266219e64f, type: 3}
+--- !u!198 &2573032124897447557 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 6749358268465588810, guid: e107f6d50b05af044b8754266219e64f, type: 3}
+  m_PrefabInstance: {fileID: 9088183234693620943}
+  m_PrefabAsset: {fileID: 0}

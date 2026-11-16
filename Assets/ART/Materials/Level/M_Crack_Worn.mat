@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Crack_Worn
-  m_Shader: {fileID: 4800000, guid: 07013a5ab1dbfa14396933affed0b3db, type: 3}
+  m_Shader: {fileID: 4800000, guid: fa72157eae332794482e4e4266c997d6, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -25,15 +25,16 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _CellSize: 0.73
     - _Glow: 0.25
     - _GlowStrength: 0.605
     - _GlowWidth: 0.01
     - _Hollow: 0
-    - _LineWidth: 0.005
+    - _LineWidth: 0.02
     - _Shape: 1
     - _ShapeSize: 0.6
     - _Stage: 0.98
-    - _Wear: 0.992
+    - _Wear: 0.588
     - _WearWidth: 0.0307
     m_Colors:
     - _Color: {r: 2.2, g: 2.2, b: 2.2, a: 1}

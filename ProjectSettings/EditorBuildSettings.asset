@@ -8,6 +8,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/DEMO_SCENE.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/Scenes/Test/TEMPLATE_SCENE.unity
+    guid: a3b509f0701e5b34c9d58506e54776a0
+  - enabled: 1
+    path: Assets/Scenes/Test/PrefabLab.unity
+    guid: 38f23081afa40694bb9138b57ba976ba
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 6bc3fbc9c4da64a469990c67a32bbeab, type: 3}
   m_UseUCBPForAssetBundles: 0

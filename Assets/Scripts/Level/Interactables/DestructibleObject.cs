@@ -184,6 +184,10 @@ public class DestructibleObject : MonoBehaviour, IResettable
 
         UpdateCracks();
 
+        // a hit that does not break it yet
+        if (_hitsTaken < HitsToBreak)
+            Sfx.PlayAt(SfxType.CrackHit, transform.position);
+
         if (_hitsTaken >= HitsToBreak)
             Break(source, direction);
     }

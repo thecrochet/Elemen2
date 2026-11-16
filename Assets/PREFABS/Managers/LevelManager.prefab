@@ -48,5 +48,5 @@ MonoBehaviour:
   MoveAction: {fileID: -1680190386980627800, guid: 6bc3fbc9c4da64a469990c67a32bbeab, type: 3}
   JumpAction: {fileID: -2099379676528639254, guid: 6bc3fbc9c4da64a469990c67a32bbeab, type: 3}
   StartOnFirstInput: 1
-  NextLevelDelay: 2.5
+  NextLevelDelay: 1.5
   NextSceneName: 

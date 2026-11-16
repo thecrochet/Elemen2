@@ -219,7 +219,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 6236517093944176841, guid: 6b8f0692ff7244e428669d92123e6f36, type: 3}
       propertyPath: m_Name
-      value: FX_HexagonPad
+      value: FX_PadLaunch
       objectReference: {fileID: 0}
     - target: {fileID: 7526586935813349403, guid: 6b8f0692ff7244e428669d92123e6f36, type: 3}
       propertyPath: m_LocalPosition.x

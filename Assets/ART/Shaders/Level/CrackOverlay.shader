@@ -6,7 +6,8 @@
 //           (M_Crack_Worn) with Scratches 0.45 for every breakable block.
 //
 // USE IT ON: a Quad child of the block (name it "Cracks"), no collider, placed in FRONT of the block.
-// The fissure is drawn once per 1x1 square of the quad, always symmetric left to right (a trunk with branches).
+// The cracks are ONE network over the whole face (not repeated per square): thin jagged lines like dry earth or cooled lava.
+// Every block gets its own pattern (seeded by its position). Stage 1 = a few cracks, 2 = more, 3 = a dense network.
 Shader "Elemento/CrackOverlay"
 {
     Properties
@@ -16,6 +17,7 @@ Shader "Elemento/CrackOverlay"
         _LineWidth ("Crack Width (world units)", Range(0.005, 0.15)) = 0.035
         _GlowWidth ("Glow Width (world units)", Range(0.01, 0.4)) = 0.09
         _GlowStrength ("Glow Strength", Range(0, 2)) = 0.6
+        _CellSize ("Crack Cell Size (world units, bigger = fewer cracks)", Range(0.5, 3)) = 1.4
         _Stage ("Stage (set by the script, 0 to 3)", Range(0, 3)) = 0
 
         [Header(Wear)]
@@ -50,6 +52,7 @@ Shader "Elemento/CrackOverlay"
                 float _GlowWidth;
                 float _GlowStrength;
                 float _Stage;
+                float _CellSize;
                 float4 _WearColor;
                 float _Wear;
                 float _WearWidth;
@@ -66,6 +69,7 @@ Shader "Elemento/CrackOverlay"
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float2 size : TEXCOORD1;
+                float seed : TEXCOORD2;
             };
 
             Varyings vert(Attributes input)
@@ -78,41 +82,8 @@ Shader "Elemento/CrackOverlay"
                 float3 axisX = float3(unity_ObjectToWorld._m00, unity_ObjectToWorld._m10, unity_ObjectToWorld._m20);
                 float3 axisY = float3(unity_ObjectToWorld._m01, unity_ObjectToWorld._m11, unity_ObjectToWorld._m21);
                 output.size = float2(length(axisX), length(axisY));
+                output.seed = frac(unity_ObjectToWorld._m03 * 0.137 + unity_ObjectToWorld._m13 * 0.291) * 40.0;
                 return output;
-            }
-
-            // The fissure of ONE square (0..1): x0, y0, x1, y1. Only the RIGHT half is listed:
-            // the shader mirrors it to the left, so the picture is always symmetric (a straight trunk with branches).
-            // SEGMENT_STAGE says from which stage each segment shows.
-            // Stage 1 = a hairline in the middle, stage 2 = it grows and branches, stage 3 = it reaches the edges.
-            #define SEGMENT_COUNT 16
-            static const float4 SEGMENTS[SEGMENT_COUNT] =
-            {
-                float4(0.50, 0.82, 0.50, 0.42),
-                float4(0.50, 0.62, 0.62, 0.74),
-                float4(0.50, 0.50, 0.60, 0.58),
-                float4(0.50, 0.95, 0.50, 0.82),
-                float4(0.50, 0.42, 0.50, 0.20),
-                float4(0.62, 0.74, 0.72, 0.80),
-                float4(0.50, 0.38, 0.64, 0.30),
-                float4(0.64, 0.30, 0.74, 0.34),
-                float4(0.60, 0.58, 0.74, 0.56),
-                float4(0.50, 1.00, 0.50, 0.95),
-                float4(0.50, 0.20, 0.50, 0.00),
-                float4(0.72, 0.80, 0.92, 0.86),
-                float4(0.74, 0.56, 1.00, 0.52),
-                float4(0.74, 0.34, 0.96, 0.24),
-                float4(0.50, 0.12, 0.70, 0.04),
-                float4(0.64, 0.30, 0.70, 0.14)
-            };
-            static const float SEGMENT_STAGE[SEGMENT_COUNT] = { 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3 };
-
-            float SegmentDistance(float2 p, float2 a, float2 b)
-            {
-                float2 pa = p - a;
-                float2 ba = b - a;
-                float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.0001));
-                return length(pa - ba * h);
             }
 
             float Hash21(float2 p)
@@ -157,9 +128,69 @@ Shader "Elemento/CrackOverlay"
                 return line1 * fadeEnds * present;
             }
 
+            float2 Hash22v(float2 p)
+            {
+                p = float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3)));
+                return frac(sin(p) * 43758.5453);
+            }
+
+            // Distance to the nearest border between two cells of a jittered grid (a "cracked earth" pattern).
+            // Returns it in cell units, and a number 0..1 that is the same for both cells sharing that border,
+            // so the border can be shown or hidden as a whole (that is how the stages work).
+            float CrackDistance(float2 x, out float edgeId)
+            {
+                float2 n = floor(x);
+                float2 f = frac(x);
+
+                float2 mg = float2(0, 0);
+                float2 mr = float2(0, 0);
+                float md = 8.0;
+
+                for (int j = -1; j <= 1; j++)
+                {
+                    for (int i = -1; i <= 1; i++)
+                    {
+                        float2 g = float2(i, j);
+                        float2 r = g + Hash22v(n + g) - f;
+                        float d = dot(r, r);
+                        if (d < md)
+                        {
+                            md = d;
+                            mr = r;
+                            mg = g;
+                        }
+                    }
+                }
+
+                md = 8.0;
+                edgeId = 0.0;
+
+                for (int j2 = -2; j2 <= 2; j2++)
+                {
+                    for (int i2 = -2; i2 <= 2; i2++)
+                    {
+                        float2 g = mg + float2(i2, j2);
+                        float2 r = g + Hash22v(n + g) - f;
+                        float2 diff = r - mr;
+
+                        if (dot(diff, diff) > 0.00001)
+                        {
+                            float d = dot(0.5 * (mr + r), normalize(diff));
+                            if (d < md)
+                            {
+                                md = d;
+                                edgeId = Hash21((n + mg) + (n + g));
+                            }
+                        }
+                    }
+                }
+
+                return md;
+            }
+
             float4 frag(Varyings input) : SV_Target
             {
-                // position in world units, then split into squares of 1 x 1
+                // position in world units
                 float2 world = input.uv * input.size;
 
                 // WEAR: scratches that are always visible
@@ -168,28 +199,23 @@ Shader "Elemento/CrackOverlay"
                 if (_Stage < 0.5)
                     return float4(color, 1);
 
-                float2 square = floor(world);
-                float2 local = frac(world);
+                // the crack network, in cell units. A small wobble makes the lines jagged instead of straight.
+                float2 x = world / _CellSize + input.seed;
+                x += 0.10 * float2(sin(x.y * 6.1 + 1.3), sin(x.x * 5.3));
 
-                // every square gets its own up/down flip so a tall block does not repeat the same fissure.
-                // Left/right is NOT random: the fissure is mirrored around the middle so it stays symmetric.
-                float h = Hash21(square);
-                if (h > 0.5) local.y = 1.0 - local.y;
-                local.x = 0.5 + abs(local.x - 0.5);
+                float edgeId;
+                float dCell = CrackDistance(x, edgeId);
+                float nearest = dCell * _CellSize;                 // world units
 
-                // distance to the closest visible crack, in world units
-                float nearest = 10.0;
-
-                [unroll]
-                for (int i = 0; i < SEGMENT_COUNT; i++)
-                {
-                    if (SEGMENT_STAGE[i] <= _Stage + 0.01)
-                        nearest = min(nearest, SegmentDistance(local, SEGMENTS[i].xy, SEGMENTS[i].zw));
-                }
+                // stage 1 shows about a third of the borders, stage 2 about two thirds, stage 3 nearly all
+                float shown = saturate(0.1 + 0.3 * _Stage);   // 0.4, 0.7, 1.0
+                float visible = step(edgeId, shown);
 
                 float aa = fwidth(nearest) + 0.0001;
-                float core = 1.0 - smoothstep(_LineWidth - aa, _LineWidth + aa, nearest);
-                float glow = exp(-nearest / max(_GlowWidth, 0.001)) * _GlowStrength;
+                // the lines also get thicker and brighter with every stage, so a hit is always visible, even on a small block
+                float lineW = _LineWidth * (0.7 + 0.15 * _Stage);
+                float core = (1.0 - smoothstep(lineW - aa, lineW + aa, nearest)) * visible;
+                float glow = exp(-nearest / max(_GlowWidth, 0.001)) * _GlowStrength * (0.6 + 0.2 * _Stage) * visible;
 
                 color += _Color.rgb * core + _GlowColor.rgb * glow;
                 return float4(color, 1);

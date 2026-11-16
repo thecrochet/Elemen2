@@ -11,7 +11,7 @@ using UnityEngine;
 //   2) Drag it into the "Exit Sequence" slot of the LevelGoal.
 //   3) The portal's blue arrow (local +Z, "Move tool" in Local mode) must point INTO the tunnel, away from the camera.
 //      This is already the case for the Neon Portal Tunnel and for a Quad that faces the camera.
-//   4) Optional: a full screen black Image with a CanvasGroup (alpha 0, no raycast) in the "Fade Group" slot.
+//   4) Optional: leave "Fade Group" empty and the ScreenFade of the Level UI is used automatically.
 //
 // It takes about 0.9 seconds before the panel, and it is only played when the level is completed
 // (never on retries), so the instant retry of the game is untouched.
@@ -155,14 +155,17 @@ public class LevelExitSequence : MonoBehaviour
             yield return null;
         }
 
-        if (FadeGroup != null)
+        // no Fade Group assigned: use the ScreenFade of the Level UI, if the level has one
+        CanvasGroup fade = FadeGroup != null ? FadeGroup : (ScreenFade.Instance != null ? ScreenFade.Instance.Group : null);
+
+        if (fade != null)
         {
             time = 0f;
 
             while (time < FadeTime)
             {
                 time += Time.deltaTime;
-                FadeGroup.alpha = Mathf.Clamp01(time / FadeTime);
+                fade.alpha = Mathf.Clamp01(time / FadeTime);
                 yield return null;
             }
         }

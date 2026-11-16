@@ -5,7 +5,7 @@ using UnityEngine.Rendering;
 
 // EDITOR ONLY. Menus that build the prefab-ready objects of the Prefab Build Guide in one click.
 //   Assets > Create > Elemento > Level Materials      creates every colored material (run it once)
-//   GameObject > Elemento > Hazards > Stomp Block (Teeth) / Stomp Block (Plain) / Saw (Disc) / Saw (Teeth) / Cannon / Fire Jet
+//   GameObject > Elemento > Hazards > Stomp Block (Teeth) / Stomp Block (Plain) / Saw (Disc) / Cannon / Fire Jet
 //   GameObject > Elemento > Level > Cracked Block
 // Every menu picks the materials by NAME (M_Level_Danger...). If one does not exist yet, the first material
 // that uses the right shader is used, so run "Level Materials" first.
@@ -300,7 +300,7 @@ public static class ElementoPrefabBuilders
     }
 
     // Teeth version: a smaller disc with a ring of 12 triangle teeth
-    [MenuItem("GameObject/Elemento/Hazards/Saw (Teeth)", false, 23)]
+    // (removed from the menu, not used anymore) [MenuItem("GameObject/Elemento/Hazards/Saw (Teeth)", false, 23)]
     private static void CreateSawTeeth(MenuCommand command)
     {
         GameObject root = NewObject("Saw_Teeth", command);
@@ -368,7 +368,7 @@ public static class ElementoPrefabBuilders
         Selection.activeGameObject = root;
     }
 
-    [MenuItem("GameObject/Elemento/Hazards/Saw Blade Picture (Teeth)", false, 27)]
+    // (removed from the menu, not used anymore) [MenuItem("GameObject/Elemento/Hazards/Saw Blade Picture (Teeth)", false, 27)]
     private static void CreateBladeTeeth(MenuCommand command)
     {
         GameObject root = NewObject("SawBlade_Teeth", command);

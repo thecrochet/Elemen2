@@ -61,7 +61,7 @@ public class ElementGate : MonoBehaviour
         if (changed)
         {
             player.SetPower(Element);
-            Sfx.Play(SfxType.PowerUp);
+            Sfx.Play(SfxType.GateCross);
         }
 
         if (PlayCollectBurst)

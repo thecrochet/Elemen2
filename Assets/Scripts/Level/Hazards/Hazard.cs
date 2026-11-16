@@ -23,6 +23,8 @@ public class Hazard : MonoBehaviour
             HitEffect.Play(true);
         }
 
+        Sfx.PlayAt(SfxType.HazardHit, transform.position);
+
         if (RespawnManager.Instance != null)
             RespawnManager.Instance.KillPlayer();
     }
