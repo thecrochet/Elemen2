@@ -111,7 +111,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RotatingSaw
   Visual: {fileID: 3948737322113128573}
-  SpinAxis: {x: 0, y: 0, z: 1}
+  SpinAxis: {x: 0, y: 1, z: 0}
   SpinSpeed: 360
   Travel: {x: 0, y: 0, z: 0}
   Speed: 4

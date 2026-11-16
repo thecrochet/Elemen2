@@ -48,9 +48,13 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3643073795513988211, guid: 391f7378b48775540a8badddab081afd, type: 3}
+      propertyPath: Message
+      value: Hold R-Trigger to Run
+      objectReference: {fileID: 0}
     - target: {fileID: 6270152200337489804, guid: 391f7378b48775540a8badddab081afd, type: 3}
       propertyPath: m_Name
-      value: TutorialSign
+      value: TutorialSign_Run
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
