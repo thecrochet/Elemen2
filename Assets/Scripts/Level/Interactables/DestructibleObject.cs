@@ -52,6 +52,9 @@ public class DestructibleObject : MonoBehaviour, IResettable
     // It plays when the object breaks. No object is created while playing.
     public ParticleSystem BreakEffect;
 
+    // Optional: a small CHILD burst (FX_CrackHit) that plays on a hit that does NOT break the object yet.
+    public ParticleSystem CrackEffect;
+
     [Header("Cracks (optional)")]
     // A renderer (usually a child quad "Cracks" with the CrackOverlay material) that shows the damage.
     // Leave empty for a block with no cracks.
@@ -186,7 +189,12 @@ public class DestructibleObject : MonoBehaviour, IResettable
 
         // a hit that does not break it yet
         if (_hitsTaken < HitsToBreak)
+        {
             Sfx.PlayAt(SfxType.CrackHit, transform.position);
+
+            if (CrackEffect != null)
+                CrackEffect.Play(true);
+        }
 
         if (_hitsTaken >= HitsToBreak)
             Break(source, direction);

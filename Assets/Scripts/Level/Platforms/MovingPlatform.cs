@@ -111,4 +111,28 @@ public class MovingPlatform : MonoBehaviour, IMoverController, IResettable
     {
         _time = _committedTime;
     }
+
+#if UNITY_EDITOR
+    // Scene view (select the platform): the path, both end points, the end footprint and the trip time
+    private void OnDrawGizmosSelected()
+    {
+        Vector3 start = Application.isPlaying ? _startPosition : transform.position;
+        Vector3 end = start + Travel;
+
+        Gizmos.color = new Color(0.2f, 0.9f, 1f, 0.9f);
+        Gizmos.DrawLine(start, end);
+        Gizmos.DrawWireSphere(start, 0.25f);
+        Gizmos.DrawWireSphere(end, 0.25f);
+
+        // where the platform ends up (a box the size of its collider)
+        Collider body = GetComponentInChildren<Collider>();
+
+        if (body != null)
+            Gizmos.DrawWireCube(body.bounds.center + (start - transform.position) + Travel, body.bounds.size);
+
+        float trip = Speed > 0.01f ? Travel.magnitude / Speed : 0f;
+        UnityEditor.Handles.Label(end + Vector3.up * 0.6f,
+            "travel " + Travel.magnitude.ToString("0.0") + " u, " + trip.ToString("0.0") + " s one way");
+    }
+#endif
 }

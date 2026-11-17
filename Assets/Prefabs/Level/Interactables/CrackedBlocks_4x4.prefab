@@ -99,6 +99,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   BreakEffect: {fileID: 1317976002632979495}
+  CrackEffect: {fileID: 1168149478714728013}
   CrackRenderer: {fileID: 5166166154389007885}
   PreCracked: 0
 --- !u!1 &4486047886855039178
@@ -338,6 +339,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b13a5699acb5c6d4ca8b22c6176d7f4c, type: 3}
+--- !u!198 &1168149478714728013 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 5957753972777568962, guid: b13a5699acb5c6d4ca8b22c6176d7f4c, type: 3}
+  m_PrefabInstance: {fileID: 4798629861072376975}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &5566167347582874920 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1127826083924877735, guid: b13a5699acb5c6d4ca8b22c6176d7f4c, type: 3}

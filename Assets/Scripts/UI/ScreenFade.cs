@@ -19,6 +19,13 @@ public class ScreenFade : MonoBehaviour
 
     private float _time;
 
+    // alpha 0 when the component is added: the black screen does not hide your scene view while you work.
+    // At Play, Awake sets it to 1 (black) before the first frame, then it fades out.
+    private void Reset()
+    {
+        GetComponent<CanvasGroup>().alpha = 0f;
+    }
+
     private void Awake()
     {
         Instance = this;

@@ -10,6 +10,9 @@ using UnityEditor;
 //   Lane   = while the ball is inside, its dash always goes along the arrows (needs the Fire power). Leave the zone: free dash again.
 //   SuperDash = entering loads the NEXT dash to go Super Dash Multiplier times further (2 = double). Until the ball lands or dies. Needs the Fire power.
 //   Charge = entering gives extra dashes (Charge Count, 1 = one more dash). They last until the ball lands or dies. Needs the Fire power.
+//   Hold = the BARREL. The ball is caught, hovers in the middle of the zone and waits. JUMP throws it along the arrows
+//          (Hold Launch Speed for Hold Launch Time, then it keeps Hold Exit Speed). After Hold Max Time it is thrown by itself.
+//          The dash is given back. The zone can move (put it on a moving platform) or sit right in front of another one.
 //   Boost = the DASH RING. The moment the ball enters, it is thrown along the arrows at Boost Speed for Boost Time,
 //           like a dash (no gravity, it needs no power), and the dash is given back. When the boost ends the ball KEEPS
 //           Exit Speed for a moment (as long as the player keeps pushing the same way), so the speed carries on.
@@ -30,7 +33,8 @@ public class DashZone : MonoBehaviour
         Boost,
         Lane,
         Charge,
-        SuperDash
+        SuperDash,
+        Hold     // appended last, keep the order
     }
 
     public ZoneMode Mode = ZoneMode.Hint;
@@ -55,6 +59,19 @@ public class DashZone : MonoBehaviour
 
     // The speed you keep when the boost ends (the walking speed is 11)
     public float ExitSpeed = 18f;
+
+    [Header("Hold mode only")]
+    // Units per second while the ball flies out of the zone
+    public float HoldLaunchSpeed = 26f;
+
+    // How long the throw lasts, in seconds
+    public float HoldLaunchTime = 0.25f;
+
+    // The speed you keep after the throw (as long as you keep pushing the same way)
+    public float HoldExitSpeed = 18f;
+
+    // After this many seconds the zone throws the ball by itself (0 = waits for ever)
+    public float HoldMaxTime = 4f;
 
     // Plays when the ball is boosted or charged (optional, Play On Awake off, Looping off)
     public ParticleSystem BoostEffect;
@@ -129,6 +146,12 @@ public class DashZone : MonoBehaviour
             PlayEffect(other.bounds.center);
         }
 
+        if (Mode == ZoneMode.Hold)
+        {
+            player.EnterHold(this);
+            PlayEffect(other.bounds.center);
+        }
+
         if (Mode == ZoneMode.Boost)
         {
             player.BoostLaunch(Direction, BoostSpeed, BoostTime, ExitSpeed);
@@ -151,6 +174,7 @@ public class DashZone : MonoBehaviour
         {
             PlayerInside = false;
             player.ExitLane(this);
+            player.ExitHoldZone(this);
         }
     }
 
@@ -174,6 +198,17 @@ public class DashZone : MonoBehaviour
         zone.gameObject.name = "DashLane";
         zone.Mode = ZoneMode.Lane;
         zone.Size = new Vector2(8f, 3f);
+        zone.Apply();
+    }
+
+    [MenuItem("GameObject/Elemento/Interactables/Dash Hold", false, 35)]
+    private static void CreateDashHold(MenuCommand command)
+    {
+        CreateDashZone(command);
+        DashZone zone = Selection.activeGameObject.GetComponent<DashZone>();
+        zone.gameObject.name = "DashHold";
+        zone.Mode = ZoneMode.Hold;
+        zone.Size = new Vector2(2f, 2f);
         zone.Apply();
     }
 
@@ -238,6 +273,53 @@ public class DashZone : MonoBehaviour
         zone.Arrows = quad.transform;
         zone.Apply();
         Selection.activeGameObject = go;
+    }
+#endif
+
+#if UNITY_EDITOR
+    // Scene view (select the zone): the arrow direction, and what the zone does
+    private void OnDrawGizmosSelected()
+    {
+        Matrix4x4 old = Gizmos.matrix;
+        Gizmos.matrix = transform.localToWorldMatrix;
+
+        Color color = Mode == ZoneMode.Boost ? new Color(1f, 0.6f, 0.1f, 0.9f) : new Color(1f, 0.9f, 0.3f, 0.8f);
+        Gizmos.color = color;
+        Gizmos.DrawWireCube(Vector3.zero, new Vector3(Size.x, Size.y, 0.2f));
+
+        // the arrow along the zone (local +X)
+        float half = Size.x * 0.4f;
+        Gizmos.DrawLine(new Vector3(-half, 0f, 0f), new Vector3(half, 0f, 0f));
+        Gizmos.DrawLine(new Vector3(half, 0f, 0f), new Vector3(half - 0.4f, 0.3f, 0f));
+        Gizmos.DrawLine(new Vector3(half, 0f, 0f), new Vector3(half - 0.4f, -0.3f, 0f));
+
+        Gizmos.matrix = old;
+
+        string text = Mode.ToString();
+
+        if (Mode == ZoneMode.Boost)
+        {
+            float distance = BoostSpeed * BoostTime;
+            Vector3 end = transform.position + Direction * distance;
+
+            Gizmos.DrawLine(transform.position, end);
+            Gizmos.DrawWireSphere(end, 0.25f);
+            text += ": " + distance.ToString("0.0") + " u at " + BoostSpeed.ToString("0") + " u/s, exit " + ExitSpeed.ToString("0") + " u/s";
+        }
+        else if (Mode == ZoneMode.SuperDash)
+        {
+            text += ": next dash x" + SuperDashMultiplier.ToString("0.0");
+        }
+        else if (Mode == ZoneMode.Hold)
+        {
+            text += ": Jump throws it, " + HoldLaunchSpeed.ToString("0") + " u/s x " + HoldLaunchTime.ToString("0.00") + " s (auto after " + HoldMaxTime.ToString("0") + " s)";
+        }
+        else if (Mode == ZoneMode.Charge)
+        {
+            text += ": +" + ChargeCount + " dash";
+        }
+
+        UnityEditor.Handles.Label(transform.position + Vector3.up * (Size.y * 0.5f + 0.4f), text);
     }
 #endif
 }

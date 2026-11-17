@@ -103,4 +103,32 @@ public class SpinArm : MonoBehaviour, IResettable
     {
         _time = _committedTime;
     }
+
+#if UNITY_EDITOR
+    // Fairness limit for the tip speed, in units per second. Placeholder: confirm the number you want.
+    private const float TipSpeedWarn = 25f;
+
+    // Scene view (select the arm): the circle the blade sweeps and its tip speed (red above the limit)
+    private void OnDrawGizmosSelected()
+    {
+        Transform blade = BladeVisual != null && BladeVisual.parent != null ? BladeVisual.parent : BladeVisual;
+
+        if (blade == null) return;
+
+        Vector3 center = transform.position;
+        float radius = Vector2.Distance(center, blade.position);
+        float tipSpeed = radius * SpinSpeed * Mathf.Deg2Rad;
+        Vector3 axis = transform.TransformDirection(SpinAxis).normalized;
+
+        Color color = tipSpeed > TipSpeedWarn ? new Color(1f, 0.15f, 0.15f, 1f) : new Color(0.3f, 1f, 0.4f, 1f);
+
+        Color oldColor = UnityEditor.Handles.color;
+        UnityEditor.Handles.color = color;
+        UnityEditor.Handles.DrawWireDisc(center, axis, radius);
+        UnityEditor.Handles.Label(center + Vector3.up * (radius + 0.5f),
+            "tip speed " + tipSpeed.ToString("0.0") + " u/s" + (tipSpeed > TipSpeedWarn ? "  TOO FAST (limit " + TipSpeedWarn + ")" : "")
+            + "\nmax spin for this arm: " + (TipSpeedWarn / Mathf.Max(radius, 0.01f) * Mathf.Rad2Deg).ToString("0") + " deg/s");
+        UnityEditor.Handles.color = oldColor;
+    }
+#endif
 }

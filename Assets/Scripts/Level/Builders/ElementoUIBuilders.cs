@@ -184,7 +184,9 @@ public static class ElementoUIBuilders
         Image fadeImage = fade.AddComponent<Image>();
         fadeImage.color = Color.black;
         fadeImage.raycastTarget = false;
-        fade.AddComponent<CanvasGroup>().blocksRaycasts = false;
+        CanvasGroup fadeGroup = fade.AddComponent<CanvasGroup>();
+        fadeGroup.blocksRaycasts = false;
+        fadeGroup.alpha = 0f;   // invisible while you work, ScreenFade turns it black at Play
         fade.AddComponent<ScreenFade>();
 
         // ---- the scripts ----

@@ -112,7 +112,12 @@ public class Atom : MonoBehaviour, IResettable
     private void SetVisible(bool visible)
     {
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            // the collect effect is a child too: its renderer must stay on, it plays after the item is hidden
+            if (renderer is ParticleSystemRenderer) continue;
+
             renderer.enabled = visible;
+        }
 
         foreach (Collider collider in GetComponents<Collider>())
             collider.enabled = visible;

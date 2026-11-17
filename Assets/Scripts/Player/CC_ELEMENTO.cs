@@ -12,7 +12,8 @@ public enum CharacterState
     Dashing,
     GroundPound,
     Dead,
-    Finished
+    Finished,
+    Held        // hovering in a Dash Hold zone (appended last, keep the order)
 }
 
 [RequireComponent(typeof(KinematicCharacterMotor))]
@@ -140,6 +141,51 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     public bool BoostKeepWhilePushing = true;
 
     // ------------------------------------------------------------------
+    // SLOPE CLIMB (Sonic style): run up a slope with boost speed and keep going UP the wall at its top
+    // ------------------------------------------------------------------
+    // Master switch (off = the wall just stops you, like before)
+    public bool SlopeClimb = true;
+
+    // On = only works while the boost momentum is alive. Off (default) = only SPEED counts, like Sonic.
+    public bool ClimbNeedsBoost = false;
+
+    // On (default) = the run must come OFF A SLOPE. Running straight into a flat wall does not climb.
+    public bool ClimbNeedsSlope = true;
+
+    // A floor counts as a slope when it is tilted at least this many degrees (the 45 degree slope = 45)
+    public float ClimbSlopeMinAngle = 20f;
+
+    // How long (seconds) after leaving a slope the wall still counts as 'reached from a slope'
+    public float ClimbSlopeMemory = 0.3f;
+
+    // You need at least this speed when you hit the wall (walking 11, running 16, boost exit speed 18)
+    public float ClimbMinSpeed = 17f;
+
+    // How much of your speed turns into upward speed (0.9 = 90 %)
+    public float ClimbSpeedConversion = 0.9f;
+
+    // The upward speed never starts above this
+    public float ClimbMaxSpeed = 22f;
+
+    // How fast the upward speed fades, per second. Height climbed = speed x speed / (2 x this), so 16 -> about 4.3 units
+    public float ClimbDeceleration = 30f;
+
+    // The climb never lasts longer than this (seconds)
+    public float ClimbMaxTime = 0.8f;
+
+    // Small push into the wall so we keep touching it while we go up (units per second)
+    public float ClimbWallPress = 2f;
+
+    // The wall must touch us at least this often (seconds). When it stops, we reached the top
+    public float ClimbContactGrace = 0.08f;
+
+    // At the top of the wall: push over the edge (horizontal units per second), so we land on top
+    public float ClimbLedgeHop = 6f;
+
+    // After a climb, a new one cannot start for this long (seconds)
+    public float ClimbCooldown = 0.25f;
+
+    // ------------------------------------------------------------------
     // ONE-WAY PLATFORMS
     // ------------------------------------------------------------------
     // Press DOWN + JUMP while standing on a one-way platform to drop through it.
@@ -239,6 +285,26 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
     private float _boostMomentumTimer;      // while > 0 the speed limit is raised to _boostCap
     private float _boostCap;
+
+    // slope climb (see HandleClimbHit)
+    private bool _climbing;
+    private Vector3 _climbWallNormal;       // points away from the wall, towards the player
+    private float _climbSpeed;
+    private float _climbTimeLeft;
+    private float _climbContactTimer;
+    private float _climbCooldownTimer;
+    private Vector3 _preMoveVelocity;       // the velocity we asked for this step, before the wall stopped us
+
+    private float _slopeContactTimer;      // > 0 = we were on a slope a moment ago
+
+    // read by BallVisuals / debug
+    public bool IsClimbing => _climbing;
+
+    // dash hold zone (the barrel)
+    private DashZone _holdZone;
+    private DashZone _holdLastZone;         // the zone we were just thrown from: it cannot catch us again until we leave it
+    private bool _holdRequested;
+    private float _holdTimer;
 
     // one-way platform drop-through: > 0 while one-way platforms are ignored
     private float _dropThroughTimer;
@@ -343,6 +409,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         UpdateInputs();
 
         // check if we should start a dash or a ground pound
+        HandleHoldRequest();
+        HandleHold(deltaTime);
         HandleDashInput();
         HandleBoostRequest();
         HandleGroundPoundInput();
@@ -412,6 +480,20 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             case CharacterState.Default:
                 {
+                    // remember that we are on a slope (the climb needs it)
+                    if (_kinematicMotor.GroundingStatus.IsStableOnGround
+                        && Vector3.Angle(_kinematicMotor.GroundingStatus.GroundNormal, _kinematicMotor.CharacterUp) >= ClimbSlopeMinAngle)
+                    {
+                        _slopeContactTimer = ClimbSlopeMemory;
+                    }
+
+                    // climbing a wall: its own movement, no ground, no air, no normal jump
+                    if (_climbing)
+                    {
+                        ClimbMovement(ref currentVelocity, deltaTime);
+                        break;
+                    }
+
                     // is the character standing on the ground?
                     if (_kinematicMotor.GroundingStatus.IsStableOnGround)
                     {
@@ -431,6 +513,16 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
                     // a bounce pad launch (beats the small bounce)
                     HandlePadLaunch(ref currentVelocity);
+
+                    // remember what we wanted, the wall hit that follows needs the speed from BEFORE the stop
+                    _preMoveVelocity = currentVelocity;
+                    break;
+                }
+
+            case CharacterState.Held:
+                {
+                    // hovering in a Dash Hold zone: no movement of its own (HandleHold places the ball)
+                    currentVelocity = Vector3.zero;
                     break;
                 }
 
@@ -497,6 +589,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         // timers that always count down, whatever the state
         _dashCooldownTimer -= deltaTime;
         _boostMomentumTimer -= deltaTime;
+        _climbCooldownTimer -= deltaTime;
+        _slopeContactTimer -= deltaTime;
 
         // SONIC STYLE: pushing the way the boost threw us raises the speed limit (and keeps the momentum alive)
         if (_boostMomentumTimer > 0f && BoostAcceleration > 0f && _moveInput.sqrMagnitude > 0.01f
@@ -789,6 +883,179 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
             _doubleJumpConsumed = true;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // DASH HOLD ZONE (the barrel): the ball hovers in the zone, Jump throws it along the arrows
+    // ------------------------------------------------------------------
+    // Called by the zone when the ball enters it
+    public void EnterHold(DashZone zone)
+    {
+        if (zone == null || zone == _holdLastZone) return;
+        if (CurrentState != CharacterState.Default && CurrentState != CharacterState.Dashing) return;
+
+        _holdZone = zone;
+        _holdRequested = true;
+    }
+
+    // Called by the zone when the ball leaves it: it can catch us again after that
+    public void ExitHoldZone(DashZone zone)
+    {
+        if (_holdLastZone == zone)
+            _holdLastZone = null;
+    }
+
+    private void HandleHoldRequest()
+    {
+        if (!_holdRequested) return;
+        _holdRequested = false;
+
+        if (_holdZone == null) return;
+        if (CurrentState != CharacterState.Default && CurrentState != CharacterState.Dashing) return;
+
+        // caught in the middle of a dash or a boost: finish it cleanly first
+        if (CurrentState == CharacterState.Dashing)
+            TransitionToState(CharacterState.Default);
+
+        TransitionToState(CharacterState.Held);
+    }
+
+    private void HandleHold(float deltaTime)
+    {
+        if (CurrentState != CharacterState.Held) return;
+
+        // the zone is gone (switched off): just let go
+        if (_holdZone == null || !_holdZone.isActiveAndEnabled)
+        {
+            _holdZone = null;
+            TransitionToState(CharacterState.Default);
+            return;
+        }
+
+        _holdTimer += deltaTime;
+
+        // hover in the middle of the zone (it follows the zone when the zone moves)
+        Vector3 bob = _kinematicMotor.CharacterUp * (Mathf.Sin(_holdTimer * 6f) * 0.08f);
+        Vector3 pivotToCenter = BallCenter - _kinematicMotor.TransientPosition;
+        _kinematicMotor.SetPosition(_holdZone.transform.position + bob - pivotToCenter);
+        _kinematicMotor.BaseVelocity = Vector3.zero;
+
+        bool timeUp = _holdZone.HoldMaxTime > 0f && _holdTimer >= _holdZone.HoldMaxTime;
+
+        if (_jumpBufferTimer > 0f || timeUp)
+            ReleaseHold();
+    }
+
+    // Throws the ball along the zone's arrows (same as a boost, so the dash is given back and the speed carries on)
+    private void ReleaseHold()
+    {
+        DashZone zone = _holdZone;
+
+        _holdZone = null;
+        _holdLastZone = zone;
+        _jumpBufferTimer = 0f;
+
+        TransitionToState(CharacterState.Default);
+        BoostLaunch(zone.Direction, zone.HoldLaunchSpeed, zone.HoldLaunchTime, zone.HoldExitSpeed);
+        HandleBoostRequest();
+        Sfx.Play(SfxType.DashBoost);
+    }
+
+    // ------------------------------------------------------------------
+    // SLOPE CLIMB
+    // ------------------------------------------------------------------
+    // Called for every wall hit. Starts the climb, or keeps it alive while we touch the wall.
+    private void HandleClimbHit(Vector3 hitNormal)
+    {
+        if (!SlopeClimb) return;
+
+        Vector3 up = _kinematicMotor.CharacterUp;
+
+        // only a vertical wall counts (the 45 degree slope itself is stable ground, so it is not a wall)
+        if (Mathf.Abs(Vector3.Dot(hitNormal, up)) >= 0.1f) return;
+
+        if (_climbing)
+        {
+            _climbContactTimer = ClimbContactGrace;
+            return;
+        }
+
+        if (_climbCooldownTimer > 0f) return;
+        if (ClimbNeedsBoost && _boostMomentumTimer <= 0f) return;
+        if (ClimbNeedsSlope && _slopeContactTimer <= 0f) return;
+
+        Vector3 wallNormal = Vector3.ProjectOnPlane(hitNormal, up).normalized;
+        float speed = _preMoveVelocity.magnitude;
+
+        if (speed < ClimbMinSpeed) return;
+
+        // we must run INTO the wall (not along it), and the player must still push towards it
+        if (Vector3.Dot(_preMoveVelocity.normalized, -wallNormal) < 0.5f) return;
+        if (Vector3.Dot(_moveInput, -wallNormal) <= 0.1f) return;
+
+        _climbing = true;
+        _climbWallNormal = wallNormal;
+        _climbSpeed = Mathf.Min(speed * ClimbSpeedConversion, ClimbMaxSpeed);
+        _climbTimeLeft = ClimbMaxTime;
+        _climbContactTimer = ClimbContactGrace;
+
+        // the boost is used up by the climb, and no free ground jump in the air afterwards
+        _boostMomentumTimer = 0f;
+        _coyoteTimer = 0f;
+    }
+
+    // Velocity while climbing: straight up the wall, fading out.
+    private void ClimbMovement(ref Vector3 currentVelocity, float deltaTime)
+    {
+        Vector3 up = _kinematicMotor.CharacterUp;
+
+        _climbTimeLeft -= deltaTime;
+        _climbContactTimer -= deltaTime;
+        _climbSpeed = Mathf.MoveTowards(_climbSpeed, 0f, ClimbDeceleration * deltaTime);
+
+        // JUMP: kick off the wall (needs no power, same push as the wall jump)
+        if (_jumpBufferTimer > 0f)
+        {
+            Sfx.Play(SfxType.WallJump);
+            Vfx.PlayTinted(VfxType.WallJump, BallCenter - _climbWallNormal * 0.5f, Quaternion.identity, CurrentPower);
+
+            _kinematicMotor.ForceUnground();
+            currentVelocity = (_climbWallNormal * WallJumpHorizontalSpeed) + (up * WallJumpVerticalSpeed);
+            _wallJumpLockTimer = WallJumpControlLockTime;
+            _jumpedThisFrame = true;
+            _jumpBufferTimer = 0f;
+            EndClimb();
+            return;
+        }
+
+        // the wall is gone = we reached the top: hop over the edge
+        if (_climbContactTimer <= 0f)
+        {
+            currentVelocity = (up * Mathf.Max(_climbSpeed, ClimbLedgeHop)) + (-_climbWallNormal * ClimbLedgeHop);
+            EndClimb();
+            return;
+        }
+
+        // out of time, out of speed, or the player stopped pushing: let go (gravity takes over)
+        bool pushing = Vector3.Dot(_moveInput, -_climbWallNormal) > 0.1f;
+
+        if (_climbTimeLeft <= 0f || _climbSpeed < 0.5f || !pushing)
+        {
+            currentVelocity = up * _climbSpeed;
+            EndClimb();
+            return;
+        }
+
+        _kinematicMotor.ForceUnground();
+        currentVelocity = (up * _climbSpeed) + (-_climbWallNormal * ClimbWallPress);
+        Vfx.SetLoop(VfxType.WallSlide, true);
+    }
+
+    private void EndClimb()
+    {
+        _climbing = false;
+        _climbCooldownTimer = ClimbCooldown;
+        Vfx.SetLoop(VfxType.WallSlide, false);
     }
 
     // the actual jump push, used by both jumps
@@ -1158,12 +1425,25 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         // a new state starts clean
         _jumpedThisFrame = false;
+        _climbing = false;
     }
 
     private void OnStateEnter(CharacterState state, CharacterState fromState)
     {
         switch (state)
         {
+            case CharacterState.Held:
+                {
+                    _holdTimer = 0f;
+                    _kinematicMotor.ForceUnground();
+                    _kinematicMotor.BaseVelocity = Vector3.zero;
+                    _jumpBufferTimer = 0f;
+                    _dashRequested = false;
+                    Vfx.SetLoop(VfxType.DashTrail, false);
+                    Sfx.Play(SfxType.ChargeGain);
+                    break;
+                }
+
             case CharacterState.Dashing:
                 {
                     if (_boostActive)
@@ -1374,6 +1654,12 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _boostRequested = false;
         _boostActive = false;
         _boostMomentumTimer = 0f;
+        _climbing = false;
+        _climbCooldownTimer = 0f;
+        _slopeContactTimer = 0f;
+        _holdZone = null;
+        _holdLastZone = null;
+        _holdRequested = false;
         _laneZone = null;
         _dashCharges = 0;
         _superDashMultiplier = 1f;
@@ -1474,6 +1760,9 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             case CharacterState.Default:
                 {
+                    // slope climb: a fast run into a vertical wall (works on the ground too)
+                    HandleClimbHit(hitNormal);
+
                     // a wall = in the air, not a stable surface, and the surface is vertical
                     // (its normal is almost perpendicular to "up")
                     bool isWall = !_kinematicMotor.GroundingStatus.IsStableOnGround

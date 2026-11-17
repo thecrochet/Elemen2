@@ -145,4 +145,30 @@ public class RotatingSaw : MonoBehaviour, IResettable
     {
         _time = _committedTime;
     }
+
+#if UNITY_EDITOR
+    // Scene view (select the saw): the path (if it travels) and the size of the blade
+    private void OnDrawGizmosSelected()
+    {
+        Vector3 start = Application.isPlaying ? _startPosition : transform.position;
+
+        float radius = 0.5f;
+        Renderer picture = Visual != null ? Visual.GetComponentInChildren<Renderer>() : null;
+
+        if (picture != null)
+            radius = picture.bounds.extents.x;
+
+        Gizmos.color = new Color(1f, 0.25f, 0.25f, 0.9f);
+        Gizmos.DrawWireSphere(start, radius);
+
+        if (Travel.sqrMagnitude > 0.0001f)
+        {
+            Gizmos.DrawLine(start, start + Travel);
+            Gizmos.DrawWireSphere(start + Travel, radius);
+        }
+
+        UnityEditor.Handles.Label(start + Vector3.up * (radius + 0.4f),
+            "spin " + SpinSpeed.ToString("0") + " deg/s" + (Travel.sqrMagnitude > 0.0001f ? ", travel " + Travel.magnitude.ToString("0.0") + " u at " + Speed.ToString("0.0") + " u/s" : ""));
+    }
+#endif
 }

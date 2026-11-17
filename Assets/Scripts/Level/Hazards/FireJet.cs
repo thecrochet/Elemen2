@@ -150,4 +150,27 @@ public class FireJet : MonoBehaviour, IResettable
 
         Apply(Evaluate(), true);
     }
+
+#if UNITY_EDITOR
+    // Scene view (select the jet): the kill zone (even while it is switched off) and the timing
+    private void OnDrawGizmosSelected()
+    {
+        if (KillZone != null)
+        {
+            Matrix4x4 old = Gizmos.matrix;
+            Gizmos.matrix = KillZone.transform.localToWorldMatrix;
+            Gizmos.color = new Color(1f, 0.3f, 0.1f, 0.9f);
+
+            if (KillZone is BoxCollider box)
+                Gizmos.DrawWireCube(box.center, box.size);
+            else if (KillZone is SphereCollider sphere)
+                Gizmos.DrawWireSphere(sphere.center, sphere.radius);
+
+            Gizmos.matrix = old;
+        }
+
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.6f,
+            "on " + OnTime.ToString("0.0") + " s / off " + OffTime.ToString("0.0") + " s / warn " + WarnTime.ToString("0.0") + " s");
+    }
+#endif
 }

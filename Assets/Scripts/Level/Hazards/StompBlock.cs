@@ -247,4 +247,27 @@ public class StompBlock : MonoBehaviour, IMoverController, IResettable
     {
         _time = _committedTime;
     }
+
+#if UNITY_EDITOR
+    // Scene view (select the block): the slam path and where the block lands
+    private void OnDrawGizmosSelected()
+    {
+        Vector3 start = Application.isPlaying ? _startPosition : transform.position;
+        Vector3 direction = SlamDirection.normalized;
+        Vector3 end = start + direction * Drop;
+
+        Gizmos.color = new Color(1f, 0.35f, 0.1f, 0.9f);
+        Gizmos.DrawLine(start, end);
+        Gizmos.DrawWireSphere(end, 0.2f);
+
+        Collider body = GetComponentInChildren<Collider>();
+
+        if (body != null)
+            Gizmos.DrawWireCube(body.bounds.center + (start - transform.position) + direction * Drop, body.bounds.size);
+
+        float slam = Drop / Mathf.Max(SlamSpeed, 0.01f);
+        UnityEditor.Handles.Label(end + Vector3.up * 0.6f,
+            "drop " + Drop.ToString("0.0") + " u, slam " + slam.ToString("0.00") + " s, warn " + WarnTime.ToString("0.0") + " s");
+    }
+#endif
 }
