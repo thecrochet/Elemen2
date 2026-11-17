@@ -23,8 +23,8 @@
 - Enums: append only.
 
 ## Level-object rules
-- Every killer uses Hazard (layer Hazard). Triggers and collectibles use layer Interactable. Breakables use Destructible.
-- Layers: Default 0, Player 3, Destructible 6, Hazard 7, Interactable 8. No tags are used; identify things by component.
+- Layers named in the project: Default 0, Player 3, Destructible 6, Hazard 7, Interactable 8. In practice most prefab roots are on Default; only Destructible (6) is used consistently. Do not build logic on layers; identify things by component. No tags are used.
+- Saw, SpinArm and StompBlock roots sit on layer 15, which has no name (cleanup item).
 - Shapes: square = safe, triangle = danger, hexagon = bounce.
 - Level objects need a ResetObject and a gizmo for their range or direction when they have one.
 

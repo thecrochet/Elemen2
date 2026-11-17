@@ -11,7 +11,7 @@ Scripts live under `Assets/Scripts/`. Legacy folders and KCC are out of scope.
 - `PowerUpType` (enum, order fixed). `PowerUpPickup.cs` is fully commented out (dead file).
 
 ## Player
-- `Player/CC_ELEMENTO`: the KCC character controller. States: Default, Dashing, GroundPound, Dead, Finished. Moves, jump, double jump, dash, ground pound, wall jump, glide, gravity flip.
+- `Player/CC_ELEMENTO`: the KCC character controller (about 1,700 lines; never read whole). Includes Boost momentum, Slope Climb (wall run: needs speed >= ClimbMinSpeed 17 and the run must come off a slope of >= 20 degrees within 0.3 s; fields start with `Climb`) and the Dash Hold barrel (HandleHold / EnterHold / ReleaseHold). States: Default, Dashing, GroundPound, Dead, Finished, Held (appended last; never reorder). Moves, jump, double jump, dash, ground pound, wall jump, glide, gravity flip.
 - `Player/BallVisuals`: ball material and effects per power.
 - Camera: `Camera/CameraZoneBlender` blends Cinemachine settings between CameraZones.
 
@@ -20,6 +20,7 @@ Scripts live under `Assets/Scripts/`. Legacy folders and KCC are out of scope.
 ## Hazards
 - `Hazard` (base kill trigger) · `RotatingSaw` · `SpinArm` · `StompBlock` (IMoverController) · `Cannon` · `FireJet` · `LavaLeaper`.
 ## Interactables and platforms
+- `Flow/DashZone`: ZoneMode order Hint, Boost, Lane, Charge, SuperDash, Hold (append only). Hold = barrel: the ball hovers, Jump throws it along the zone arrow (26 u/s for 0.25 s), auto-throw after HoldMaxTime 4 s. Zones can move or chain. Direction = transform.right; use the Size field, never scale the root.
 - `BouncePad` · `DestructibleObject` (HitSource enum: dash, ground pound) · `ElementGate` (gives a power, plays collect burst) · `CrumblingBlock` · `IceSurface` · `MovingPlatform` (IMoverController) · `OneWayPlatform`.
 ## Builders (Editor/create-menu helpers, `Level/Builders/`)
 - `ElementoPrefabBuilders` (ElementoMaterials and prefab builders) · `ElementoUIBuilders` (level UI, control prompt) · `NeonBlock` (anchor Center/Left/TopLeft) · `NeonShapeMesh` · `NeonPortalTunnel`.
