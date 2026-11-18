@@ -6,10 +6,17 @@ using UnityEngine;
 //
 // The timer changes many times per second, so it is written into a character array that is
 // created ONCE. This makes no garbage (no memory to clean up), which keeps the game smooth.
+//
+// When LevelManager.IsTutorialLevel is true the timer and star-rating objects are hidden
+// so the tutorial cold-open has a clean HUD.
 public class LevelHUD : MonoBehaviour
 {
     public TMP_Text TimerText;        // for example "0:12.34", top of the screen
     public TMP_Text AttemptsText;     // for example "Attempt 3"
+
+    [Header("Tutorial")]
+    [Tooltip("Hide these objects when LevelManager.IsTutorialLevel is true (timer, star ratings, etc.).")]
+    public GameObject[] TutorialHiddenObjects;
 
     public GameObject FinishPanel;    // shown when the level is completed (starts hidden)
     public TMP_Text FinishTimeText;   // your final time
@@ -26,6 +33,20 @@ public class LevelHUD : MonoBehaviour
     {
         if (FinishPanel != null)
             FinishPanel.SetActive(false);
+
+        // In a tutorial level, hide the timer, star ratings, or any other HUD elements
+        // that are not relevant during the cold-open.
+        if (LevelManager.Instance != null && LevelManager.Instance.IsTutorialLevel)
+        {
+            if (TimerText != null)
+                TimerText.gameObject.SetActive(false);
+
+            for (int i = 0; i < TutorialHiddenObjects.Length; i++)
+            {
+                if (TutorialHiddenObjects[i] != null)
+                    TutorialHiddenObjects[i].SetActive(false);
+            }
+        }
     }
 
     private void Update()

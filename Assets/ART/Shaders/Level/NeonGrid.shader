@@ -73,6 +73,12 @@ Shader "Elemento/NeonGrid"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+            // Global reveal properties (outside UnityPerMaterial to stay SRP-Batcher-compatible)
+            float  _GridRevealEnabled;
+            float3 _GridRevealOrigin;
+            float  _GridRevealRadius;
+            float  _GridRevealSoftEdge;
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _EdgeColor;
                 float4 _FillColor;
@@ -113,6 +119,7 @@ Shader "Elemento/NeonGrid"
                 float2 uv         : TEXCOORD3;
                 float3 scale      : TEXCOORD4;   // size of the object in world units
                 float  camDist    : TEXCOORD5;   // distance to the camera
+                float3 positionWS : TEXCOORD6;   // world position for reveal sphere
             };
 
             Varyings vert(Attributes IN)
@@ -131,6 +138,7 @@ Shader "Elemento/NeonGrid"
                 OUT.scale = float3(length(m._m00_m10_m20), length(m._m01_m11_m21), length(m._m02_m12_m22));
 
                 OUT.camDist = distance(GetCameraPositionWS(), pos.positionWS);
+                OUT.positionWS = pos.positionWS;
                 return OUT;
             }
 
@@ -209,6 +217,15 @@ Shader "Elemento/NeonGrid"
 
                 // alpha is only used by the Glass blend (SrcAlpha / OneMinusSrcAlpha)
                 float alpha = saturate(_FillAlpha + core + halo * 0.5) * fade;
+
+                // 12) Tutorial reveal sphere: pitch-black outside the wave, smooth ramp at the edge
+                //     _GridRevealEnabled == 0 -> multiplier is 1 (non-tutorial scenes unchanged)
+                float revealMask = smoothstep(_GridRevealRadius,
+                                             _GridRevealRadius - max(_GridRevealSoftEdge, 0.001),
+                                             distance(IN.positionWS, _GridRevealOrigin));
+                float reveal = lerp(1.0, revealMask, step(0.5, _GridRevealEnabled));
+                col   *= reveal;
+                alpha *= reveal;
 
                 return half4(col, alpha);
             }

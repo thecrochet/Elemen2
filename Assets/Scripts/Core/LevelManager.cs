@@ -17,6 +17,14 @@ public class LevelManager : MonoBehaviour, IResettable
     // ------------------------------------------------------------------
     // SETTINGS
     // ------------------------------------------------------------------
+    [Header("Tutorial")]
+    [Tooltip("When true the HUD hides the timer and star ratings, and the clock does not start until the intro finishes.")]
+    public bool IsTutorialLevel;
+
+    // Set by TutorialIntroSequence while the cold-open animation runs.
+    // The clock ignores StartOnFirstInput while this is true.
+    public bool IsIntroPending { get; set; }
+
     public CC_ELEMENTO Player;
 
     // The same Move and Jump actions as the character. They only start the clock.
@@ -97,6 +105,10 @@ public class LevelManager : MonoBehaviour, IResettable
 
         if (!_clockRunning)
         {
+            // The tutorial intro must finish before the clock can start
+            if (IsIntroPending)
+                return;
+
             // waiting for the player to start moving
             if (StartOnFirstInput && !HasStartInput())
                 return;

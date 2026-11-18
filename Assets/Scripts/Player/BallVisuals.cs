@@ -201,7 +201,7 @@ public class BallVisuals : MonoBehaviour
                 break;
         }
 
-        if (material != null)
-            BallRenderer.material = material;
+        if (material != null && BallRenderer != null)
+            BallRenderer.sharedMaterial = material;
     }
 }

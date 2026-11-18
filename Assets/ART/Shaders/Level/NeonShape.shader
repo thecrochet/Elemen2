@@ -60,6 +60,12 @@ Shader "Elemento/NeonShape"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+            // Global reveal properties (outside UnityPerMaterial to stay SRP-Batcher-compatible)
+            float  _GridRevealEnabled;
+            float3 _GridRevealOrigin;
+            float  _GridRevealRadius;
+            float  _GridRevealSoftEdge;
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _EdgeColor;
                 float4 _FillColor;
@@ -139,6 +145,15 @@ Shader "Elemento/NeonShape"
                 float3 light = (coreColor * core + _EdgeColor.rgb * glow * 0.5) * boost * pulse * depthDim;
                 float3 rgb = (light + _FillColor.rgb * _FillAlpha) * fade;
                 float alpha = saturate(_FillAlpha + core) * fade;
+
+                // Tutorial reveal sphere: pitch-black outside the wave, smooth ramp at the edge
+                // _GridRevealEnabled == 0 -> multiplier is 1 (non-tutorial scenes unchanged)
+                float revealMask = smoothstep(_GridRevealRadius,
+                                             _GridRevealRadius - max(_GridRevealSoftEdge, 0.001),
+                                             distance(IN.positionWS, _GridRevealOrigin));
+                float reveal = lerp(1.0, revealMask, step(0.5, _GridRevealEnabled));
+                rgb   *= reveal;
+                alpha *= reveal;
 
                 return half4(rgb, alpha);
             }

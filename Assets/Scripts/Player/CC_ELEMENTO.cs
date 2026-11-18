@@ -62,7 +62,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // RUN SETTINGS (optional, Super Meat Boy style)
     // ------------------------------------------------------------------
     // OFF = the character works exactly like before. ON = holding the Run button gives a higher top speed.
-    public bool UseRun = false;
+    public bool UseRun = true;
     // Top speed while running (MaxGroundSpeed above is the walking speed)
     public float RunSpeed = 16f;
     // How fast the speed builds up while running (lower = more momentum, higher = snappier)
@@ -206,7 +206,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // Which layers the shockwave looks at
     public LayerMask DestructibleLayers = ~0;
 
-    // Small bounce after landing (Mario style). Apex = strength² / (2 x gravity), so 12 is about 1 unit.
+    // Small bounce after landing (Mario style). Apex = strengthÂ² / (2 x gravity), so 12 is about 1 unit.
     // A jump pressed right at the landing beats it and gives a full jump instead.
     public float GroundPoundBounceStrength = 12f;
 
