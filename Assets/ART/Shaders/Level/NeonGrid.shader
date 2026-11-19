@@ -97,6 +97,9 @@ Shader "Elemento/NeonGrid"
                 float _UVMode;
             CBUFFER_END
 
+            // Global, set by GridReveal. 1 = grid hidden, 0 = normal. Never set = 0, so other levels are untouched.
+            float _ElementoGridHide;
+
             struct Attributes
             {
                 float4 positionOS : POSITION;
@@ -209,6 +212,11 @@ Shader "Elemento/NeonGrid"
 
                 // alpha is only used by the Glass blend (SrcAlpha / OneMinusSrcAlpha)
                 float alpha = saturate(_FillAlpha + core + halo * 0.5) * fade;
+
+                // tutorial grid reveal: fade the whole grid in and out with one global value
+                float reveal = 1.0 - _ElementoGridHide;
+                col *= reveal;
+                alpha *= reveal;
 
                 return half4(col, alpha);
             }

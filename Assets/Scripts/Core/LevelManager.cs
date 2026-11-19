@@ -34,6 +34,21 @@ public class LevelManager : MonoBehaviour, IResettable
     public string NextSceneName = "";
 
     // ------------------------------------------------------------------
+    // STARS (time only, 0 to 3). Tune the three limits per level after playtests.
+    // ------------------------------------------------------------------
+    // false = no stars in this level (tutorial): nothing is saved, the HUD hides the star icons
+    public bool EnableStars = true;
+
+    // finish in this time or less = 3 stars (the fastest route, secret roads included)
+    [Min(0f)] public float ThreeStarTime = 7f;
+
+    // 2 stars
+    [Min(0f)] public float TwoStarTime = 12f;
+
+    // 1 star. Slower than this = 0 stars (the level is still finished).
+    [Min(0f)] public float OneStarTime = 30f;
+
+    // ------------------------------------------------------------------
     // INFO FOR THE HUD
     // ------------------------------------------------------------------
     public float LevelTime { get; private set; }
@@ -49,6 +64,15 @@ public class LevelManager : MonoBehaviour, IResettable
     // best finished time of this level (-1 = never finished)
     public float BestTime { get; private set; } = -1f;
 
+    // stars of this run (0 to 3, always 0 while EnableStars is off)
+    public int Stars { get; private set; }
+
+    // the best star count saved for this level (before this run is counted)
+    public int SavedStars { get; private set; }
+
+    // true if this run earned more stars than any run before
+    public bool IsNewStarRecord { get; private set; }
+
     // ------------------------------------------------------------------
     // PRIVATE VARIABLES
     // ------------------------------------------------------------------
@@ -60,6 +84,64 @@ public class LevelManager : MonoBehaviour, IResettable
 
     // each level keeps its own best time, named after its scene
     private string BestTimeKey => "BestTime_" + SceneManager.GetActiveScene().name;
+
+    private static string StarsKey(string sceneName)
+    {
+        return "Stars_" + sceneName;
+    }
+
+    // keep the limits in order while you edit them in the Inspector
+    private void OnValidate()
+    {
+        if (TwoStarTime < ThreeStarTime) TwoStarTime = ThreeStarTime;
+        if (OneStarTime < TwoStarTime) OneStarTime = TwoStarTime;
+    }
+
+    // 0 to 3 stars for a finish time. It compares the hundredths the HUD shows, so a time that reads
+    // 7.00 earns the same stars as a limit of 7.00.
+    public int GetStarsForTime(float time)
+    {
+        int centis = (int)(time * 100f);
+
+        if (centis <= Mathf.RoundToInt(ThreeStarTime * 100f)) return 3;
+        if (centis <= Mathf.RoundToInt(TwoStarTime * 100f)) return 2;
+        if (centis <= Mathf.RoundToInt(OneStarTime * 100f)) return 1;
+        return 0;
+    }
+
+    // The time limit for the next star up (0 stars -> the 1 star limit, 1 -> 2, 2 -> 3). False at 3 stars.
+    public bool TryGetNextStarTime(int stars, out float time)
+    {
+        switch (stars)
+        {
+            case 0: time = OneStarTime; return true;
+            case 1: time = TwoStarTime; return true;
+            case 2: time = ThreeStarTime; return true;
+            default: time = 0f; return false;
+        }
+    }
+
+    // best saved star count of any level (0 if never finished). For the hub's level portals.
+    public static int GetSavedStars(string sceneName)
+    {
+        return PlayerPrefs.GetInt(StarsKey(sceneName), 0);
+    }
+
+    // all saved stars added up over the scenes in the Build Settings (for the hub star counter and world gates)
+    public static int GetTotalSavedStars()
+    {
+        int total = 0;
+        int count = SceneManager.sceneCountInBuildSettings;
+
+        for (int i = 0; i < count; i++)
+        {
+            string path = SceneUtility.GetScenePathByBuildIndex(i);
+            string sceneName = System.IO.Path.GetFileNameWithoutExtension(path);
+            total += GetSavedStars(sceneName);
+        }
+
+        return total;
+    }
 
     // Awake runs before every Start, so the Instance is ready for the HUD and the goal
     private void Awake()
@@ -79,6 +161,7 @@ public class LevelManager : MonoBehaviour, IResettable
     private void Start()
     {
         BestTime = PlayerPrefs.GetFloat(BestTimeKey, -1f);
+        SavedStars = GetSavedStars(SceneManager.GetActiveScene().name);
 
         // Register also saves the starting state (time 0) right away
         if (RespawnManager.Instance != null)
@@ -147,6 +230,26 @@ public class LevelManager : MonoBehaviour, IResettable
         else
         {
             BestTime = previousBest;
+        }
+
+        // stars: only the best count is kept
+        if (EnableStars)
+        {
+            Stars = GetStarsForTime(LevelTime);
+            string starsKey = StarsKey(SceneManager.GetActiveScene().name);
+            int savedStars = PlayerPrefs.GetInt(starsKey, 0);
+            IsNewStarRecord = Stars > savedStars;
+
+            if (IsNewStarRecord)
+            {
+                PlayerPrefs.SetInt(starsKey, Stars);
+                PlayerPrefs.Save();
+                SavedStars = Stars;
+            }
+            else
+            {
+                SavedStars = savedStars;
+            }
         }
 
         // no more deaths or respawns, and the character stops

@@ -50,3 +50,7 @@ MonoBehaviour:
   StartOnFirstInput: 1
   NextLevelDelay: 1.5
   NextSceneName: 
+  EnableStars: 1
+  ThreeStarTime: 7
+  TwoStarTime: 12
+  OneStarTime: 30

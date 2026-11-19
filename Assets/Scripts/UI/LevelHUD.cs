@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 // Shows the level time, the attempt number and the finish panel.
 // Put it on the Canvas and fill the slots. All the texts are optional.
@@ -15,12 +16,27 @@ public class LevelHUD : MonoBehaviour
     public TMP_Text FinishTimeText;   // your final time
     public TMP_Text BestTimeText;     // "NEW BEST!" or your best time
 
+    [Header("Stars (all optional)")]
+    // 3 icons next to the timer: all lit at the start, they dim as the clock passes each limit
+    public Image[] PaceStarIcons;
+
+    // 3 icons on the finish panel: the stars you earned are lit
+    public Image[] FinishStarIcons;
+
+    // for example "2 stars: 12.00 or less" (shows the next star to chase)
+    public TMP_Text NextStarTargetText;
+
+    public Color LitStarColor = Color.white;
+    public Color DimStarColor = new Color(1f, 1f, 1f, 0.2f);
+
     // created once and reused (16 is more than the 8 characters we ever write)
     private readonly char[] _buffer = new char[16];
 
     private int _lastCentis = -1;
     private int _lastAttempts = -1;
     private bool _finishShown;
+    private int _paceStars = -1;
+    private bool _paceHidden;
 
     private void Start()
     {
@@ -53,7 +69,10 @@ public class LevelHUD : MonoBehaviour
             AttemptsText.text = "Attempt " + _lastAttempts;
         }
 
-        if (level.IsFinished && !_finishShown)
+        UpdatePaceStars(level);
+
+        // the exit animation asks the HUD to wait (HoldFinishPanel) until the ball has dived into the portal
+        if (level.IsFinished && !_finishShown && !level.HoldFinishPanel)
             ShowFinish(level);
     }
 
@@ -70,6 +89,8 @@ public class LevelHUD : MonoBehaviour
             FinishTimeText.SetCharArray(_buffer, 0, length);
         }
 
+        ShowFinishStars(level);
+
         if (BestTimeText != null)
         {
             if (level.IsNewBest)
@@ -82,6 +103,75 @@ public class LevelHUD : MonoBehaviour
                 int length = WriteTime((int)(level.BestTime * 100f));
                 BestTimeText.text = "Best " + new string(_buffer, 0, length);
             }
+        }
+    }
+
+    // Pace stars: the icon colours are only rewritten when the star bracket changes (no per-frame work).
+    private void UpdatePaceStars(LevelManager level)
+    {
+        if (PaceStarIcons == null || PaceStarIcons.Length == 0) return;
+
+        if (!level.EnableStars)
+        {
+            if (!_paceHidden)
+            {
+                _paceHidden = true;
+                SetIconsActive(PaceStarIcons, false);
+            }
+            return;
+        }
+
+        int stars = level.GetStarsForTime(level.LevelTime);
+        if (stars == _paceStars) return;
+
+        _paceStars = stars;
+        ColorIcons(PaceStarIcons, stars);
+    }
+
+    private void ShowFinishStars(LevelManager level)
+    {
+        if (!level.EnableStars)
+        {
+            SetIconsActive(FinishStarIcons, false);
+            if (NextStarTargetText != null) NextStarTargetText.gameObject.SetActive(false);
+            return;
+        }
+
+        ColorIcons(FinishStarIcons, level.Stars);
+
+        if (NextStarTargetText == null) return;
+
+        if (level.TryGetNextStarTime(level.Stars, out float target))
+        {
+            int length = WriteTime(Mathf.RoundToInt(target * 100f));
+            NextStarTargetText.text = (level.Stars + 1) + (level.Stars == 0 ? " star: " : " stars: ")
+                + new string(_buffer, 0, length) + " or less";
+        }
+        else
+        {
+            NextStarTargetText.text = "3 STARS";
+        }
+    }
+
+    private void ColorIcons(Image[] icons, int lit)
+    {
+        if (icons == null) return;
+
+        for (int i = 0; i < icons.Length; i++)
+        {
+            if (icons[i] != null)
+                icons[i].color = i < lit ? LitStarColor : DimStarColor;
+        }
+    }
+
+    private static void SetIconsActive(Image[] icons, bool active)
+    {
+        if (icons == null) return;
+
+        for (int i = 0; i < icons.Length; i++)
+        {
+            if (icons[i] != null)
+                icons[i].gameObject.SetActive(active);
         }
     }
 

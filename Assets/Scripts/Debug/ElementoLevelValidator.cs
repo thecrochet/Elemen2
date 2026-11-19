@@ -126,7 +126,8 @@ public static class ElementoLevelValidator
         foreach (LevelExitSequence e in All<LevelExitSequence>())
         {
             if (e.PortalCenter == null) Warn("LevelExitSequence '" + e.name + "': PortalCenter is empty.", e);
-            if (e.FadeGroup == null) Warn("LevelExitSequence '" + e.name + "': FadeGroup is empty (no fade to black).", e);
+            // an empty Fade Group is fine when the level has a ScreenFade: the exit sequence uses it
+            if (e.FadeGroup == null && All<ScreenFade>().Length == 0) Warn("LevelExitSequence '" + e.name + "': FadeGroup is empty and the level has no ScreenFade (no fade to black).", e);
         }
 
         foreach (LevelHUD h in All<LevelHUD>())
@@ -141,7 +142,7 @@ public static class ElementoLevelValidator
         {
             if (p.PausePanel == null) Warn("PauseMenu: PausePanel is empty.", p);
             if (p.ResumeButton == null) Warn("PauseMenu: ResumeButton is empty.", p);
-            if (p.PauseAction == null) Warn("PauseMenu: PauseAction is empty (no pause key).", p);
+            // PauseAction is optional: when empty the menu listens to Esc and the gamepad Start button
         }
 
         foreach (Hazard h in All<Hazard>())

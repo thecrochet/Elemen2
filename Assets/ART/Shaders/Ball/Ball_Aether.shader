@@ -65,6 +65,9 @@ Shader "Elemento/Ball/Aether"
                 float4 _NebulaColor;
             CBUFFER_END
 
+            // Global, set by IntroSequence. 1 = ball invisible, 0 = normal. Never set = 0, so nothing else changes.
+            float _ElementoBallHide;
+
             float4 Layer(float3 u)
             {
                 float t = _Time.y;
@@ -134,6 +137,8 @@ Shader "Elemento/Ball/Aether"
 
                 float4 col = ComposeGlass(front, float4(0, 0, 0, 0), back, v, _TintColor.rgb, _GlassAlpha, _BackDim,
                                           _RimColor.rgb, _RimPower, _RimStrength);
+                // tutorial intro: fade the whole ball (colour and alpha together, it is premultiplied)
+                col *= 1.0 - _ElementoBallHide;
                 return half4(col);
             }
             ENDHLSL
