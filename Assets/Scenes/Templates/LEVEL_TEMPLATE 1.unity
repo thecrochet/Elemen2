@@ -286,6 +286,34 @@ PrefabInstance:
       propertyPath: m_TextStyleHashCode
       value: -1183493901
       objectReference: {fileID: 0}
+    - target: {fileID: 2412118052983939425, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: DimStarColor.b
+      value: 0.10519748
+      objectReference: {fileID: 0}
+    - target: {fileID: 2412118052983939425, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: DimStarColor.g
+      value: 0.7176289
+      objectReference: {fileID: 0}
+    - target: {fileID: 2412118052983939425, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: DimStarColor.r
+      value: 0.7433963
+      objectReference: {fileID: 0}
+    - target: {fileID: 2412118052983939425, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: LitStarColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2412118052983939425, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: LitStarColor.g
+      value: 0.916653
+      objectReference: {fileID: 0}
+    - target: {fileID: 2412118052983939425, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: LitStarColor.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3113699077495784965, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: looping
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3658756148683489717, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
       propertyPath: NextSceneName
       value: PrefabLab
@@ -452,6 +480,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8643822255236231735, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
       propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8679622007741509549, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: InteractiveRigidbodyHandling
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8747526076329780049, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}

@@ -124,6 +124,10 @@ public class LevelHUD : MonoBehaviour
         int stars = level.GetStarsForTime(level.LevelTime);
         if (stars == _paceStars) return;
 
+        // a star was lost (3 to 2, 2 to 1, 1 to 0): a short falling blip. Gaining one back after a respawn is silent.
+        if (_paceStars >= 0 && stars < _paceStars)
+            Sfx.Play(SfxType.StarLost);
+
         _paceStars = stars;
         ColorIcons(PaceStarIcons, stars);
     }

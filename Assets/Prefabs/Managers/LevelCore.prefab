@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1022838345335877435}
-  - component: {fileID: 6769850886888118111}
+  - component: {fileID: 5344394119263669203}
   m_Layer: 0
   m_Name: JumpProbe
   m_TagString: Untagged
@@ -32,26 +32,28 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1831811843033559024}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6769850886888118111
+--- !u!114 &5344394119263669203
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3569513162169099027}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2e54bd0cdd32f04448d3f52ad572a860, type: 3}
+  m_Script: {fileID: 11500000, guid: 617c724aecfcf2740acf3b19edae8eef, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::JumpProbe
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerLab
   Player: {fileID: 5343368167086972643}
-  AllPowers: 1
-  RunSpeedThreshold: 13.5
+  MixPowers: 1
+  Fire: 1
+  Air: 1
+  Earth: 1
+  Water: 1
+  ShowPanel: 1
   GroundMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  LogToConsole: 1
-  ShowOnScreen: 1
 --- !u!1 &8820225143625496930
 GameObject:
   m_ObjectHideFlags: 0
@@ -106,7 +108,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 596081560849155666, guid: 33fd3ca504f425842bf70889b20d0392, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 596081560849155666, guid: 33fd3ca504f425842bf70889b20d0392, type: 3}
       propertyPath: m_LocalPosition.y
@@ -603,6 +605,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2859413342867453916, guid: 6b835632c1ca4184ca327c04410e0b22, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: b8ce7f5b51ca8ae46962125f3e9cc4e0, type: 3}
     - target: {fileID: 7567369476078662636, guid: 6b835632c1ca4184ca327c04410e0b22, type: 3}
       propertyPath: m_Name
       value: LevelUI

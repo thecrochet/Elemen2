@@ -39,7 +39,8 @@ public enum SfxType
     AtomCollect,
     CannonShoot,
     HazardHit,
-    CrackHit
+    CrackHit,
+    StarLost
 }
 
 // The settings of ONE sound event (it shows as one line in the Inspector list)
