@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using Unity.Cinemachine;
 using KinematicCharacterController;
 
@@ -140,6 +142,65 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // On = the momentum does not run out while you keep pushing the same way (it ends a moment after you let go or turn)
     public bool BoostKeepWhilePushing = true;
 
+    [Header("Boost Impulse Smash")]
+    [Tooltip("How long after hitting a chevron speed pad the player can smash breakable blocks")]
+    [SerializeField] private float boostSmashDuration = 0.5f;
+
+    [Header("Purple Ball / Default Abilities")]
+    [Tooltip("Allow Dash for the base / Purple Ball from level start")]
+    [SerializeField] private bool defaultDash = true;
+
+    [Tooltip("Allow Double Jump for the base / Purple Ball from level start")]
+    [SerializeField] private bool defaultDoubleJump = true;
+
+    [Tooltip("Allow Wall Jump for the base / Purple Ball from level start")]
+    [SerializeField] private bool defaultWallJump = true;
+
+    [Tooltip("Allow Ground Pound for the base / Purple Ball from level start")]
+    [SerializeField] private bool defaultGroundPound = true;
+
+    [Tooltip("Allow Glide for the base / Purple Ball from level start")]
+    [SerializeField] private bool defaultGlide = true;
+
+    public float BoostSmashDuration
+    {
+        get => boostSmashDuration;
+        set => boostSmashDuration = value;
+    }
+
+    public bool isBoostImpulseActive => _boostImpulseTimer > 0f || _boostActive || InLane || _holdZone != null;
+    public bool IsBoostImpulseActive => isBoostImpulseActive;
+
+    public bool DefaultDash
+    {
+        get => defaultDash;
+        set => defaultDash = value;
+    }
+
+    public bool DefaultDoubleJump
+    {
+        get => defaultDoubleJump;
+        set => defaultDoubleJump = value;
+    }
+
+    public bool DefaultWallJump
+    {
+        get => defaultWallJump;
+        set => defaultWallJump = value;
+    }
+
+    public bool DefaultGroundPound
+    {
+        get => defaultGroundPound;
+        set => defaultGroundPound = value;
+    }
+
+    public bool DefaultGlide
+    {
+        get => defaultGlide;
+        set => defaultGlide = value;
+    }
+
     // ------------------------------------------------------------------
     // SLOPE CLIMB (Sonic style): run up a slope with boost speed and keep going UP the wall at its top
     // ------------------------------------------------------------------
@@ -206,9 +267,77 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // Which layers the shockwave looks at
     public LayerMask DestructibleLayers = ~0;
 
-    // Small bounce after landing (Mario style). Apex = strength² / (2 x gravity), so 12 is about 1 unit.
+    // Small bounce after landing (Mario style). Apex = strengthÂ² / (2 x gravity), so 12 is about 1 unit.
     // A jump pressed right at the landing beats it and gives a full jump instead.
     public float GroundPoundBounceStrength = 12f;
+
+    [Header("Camera Shake (Impulse)")]
+    [Tooltip("Cinemachine impulse source used for camera shake on ground pound floor impact.")]
+    [SerializeField] private CinemachineImpulseSource groundPoundImpulseSource;
+    [Tooltip("Force multiplier for the ground pound camera shake impulse.")]
+    [SerializeField] private float groundPoundShakeForce = 2.5f;
+
+    public CinemachineImpulseSource GroundPoundImpulseSource
+    {
+        get => groundPoundImpulseSource;
+        set => groundPoundImpulseSource = value;
+    }
+
+    public float GroundPoundShakeForce
+    {
+        get => groundPoundShakeForce;
+        set => groundPoundShakeForce = value;
+    }
+
+    [Header("Visual Distortion (Ground Pound Impact)")]
+    [Tooltip("Dedicated URP Volume used for ground pound impact distortion (weight = 0 at rest).")]
+    [SerializeField] private Volume groundPoundDistortionVolume;
+    [Tooltip("Peak Lens Distortion intensity at the height of the impact pulse (negative bulges outward).")]
+    [SerializeField] private float peakLensDistortion = -0.45f;
+    [Tooltip("Peak Chromatic Aberration intensity at the height of the impact pulse.")]
+    [SerializeField] private float peakChromaticAberration = 0.8f;
+    [Tooltip("Duration of the impact distortion pulse in seconds.")]
+    [SerializeField] private float groundPoundDistortionDuration = 0.25f;
+    [Tooltip("Curve defining the distortion pulse over its duration (evaluated from 0 to 1).")]
+    [SerializeField] private AnimationCurve groundPoundDistortionCurve = new AnimationCurve(
+        new Keyframe(0f, 0f, 0f, 8f),
+        new Keyframe(0.15f, 1f, 0f, 0f),
+        new Keyframe(1f, 0f, -1.5f, 0f)
+    );
+
+    public Volume GroundPoundDistortionVolume
+    {
+        get => groundPoundDistortionVolume;
+        set => groundPoundDistortionVolume = value;
+    }
+
+    public float PeakLensDistortion
+    {
+        get => peakLensDistortion;
+        set => peakLensDistortion = value;
+    }
+
+    public float PeakChromaticAberration
+    {
+        get => peakChromaticAberration;
+        set => peakChromaticAberration = value;
+    }
+
+    public float GroundPoundDistortionDuration
+    {
+        get => groundPoundDistortionDuration;
+        set => groundPoundDistortionDuration = value;
+    }
+
+    public AnimationCurve GroundPoundDistortionCurve
+    {
+        get => groundPoundDistortionCurve;
+        set => groundPoundDistortionCurve = value;
+    }
+
+    private LensDistortion _lensDistortion;
+    private ChromaticAberration _chromaticAberration;
+    private float _distortionTimer;
 
     // ------------------------------------------------------------------
     // GLIDE SETTINGS (parachute, Peach style)
@@ -285,6 +414,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
     private float _boostMomentumTimer;      // while > 0 the speed limit is raised to _boostCap
     private float _boostCap;
+    private float _boostImpulseTimer;       // while > 0 speed impulse from chevron pads shatters breakable blocks
 
     // slope climb (see HandleClimbHit)
     private bool _climbing;
@@ -374,6 +504,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         // start with the power chosen in the Inspector (None = no power)
         SetPower(StartingPower);
+
+        InitDistortionVolume();
     }
 
     // Update runs every frame, so this is where we catch the button presses.
@@ -381,6 +513,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // because the walkthrough says all velocity must be handled there.
     private void Update()
     {
+        UpdateDistortionEffect(Time.deltaTime);
+
         // while the game is paused (PauseMenu sets Time.timeScale to 0) the buttons are ignored,
         // so a press made in the menu can't wait there and become a jump when the game resumes
         if (Time.timeScale == 0f) return;
@@ -494,6 +628,16 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         break;
                     }
 
+                    // riding a speed lane (DashLane)
+                    if (_laneZone != null)
+                    {
+                        float laneSpeed = _laneZone.BoostSpeed > 0f ? _laneZone.BoostSpeed : 26f;
+                        currentVelocity = _laneDirection * laneSpeed;
+                        _kinematicMotor.ForceUnground();
+                        _preMoveVelocity = currentVelocity;
+                        break;
+                    }
+
                     // is the character standing on the ground?
                     if (_kinematicMotor.GroundingStatus.IsStableOnGround)
                     {
@@ -589,6 +733,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         // timers that always count down, whatever the state
         _dashCooldownTimer -= deltaTime;
         _boostMomentumTimer -= deltaTime;
+        _boostImpulseTimer -= deltaTime;
         _climbCooldownTimer -= deltaTime;
         _slopeContactTimer -= deltaTime;
 
@@ -785,7 +930,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             // with a GlideAction button the glide works at any moment of the fall (even on the first jump);
             // without one it uses the jump button, which must be released once in the air first
-            bool ownButton = GlideAction != null;
+            bool ownButton = GlideAction != null && GlideAction.action != null;
             bool glideHeld = ownButton ? GlideAction.action.IsPressed() : jumpHeld;
 
             if (!jumpHeld)
@@ -1128,6 +1273,12 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _boostTime = Mathf.Max(time, 0.05f);
         _boostExitSpeed = exitSpeed;
         _boostRequested = true;
+        _boostImpulseTimer = _boostTime + boostSmashDuration;
+    }
+
+    public void ActivateBoostImpulse(float customDuration = -1f)
+    {
+        _boostImpulseTimer = customDuration > 0f ? customDuration : boostSmashDuration;
     }
 
     // ------------------------------------------------------------------
@@ -1139,13 +1290,21 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         if (direction.sqrMagnitude < 0.0001f) return;
         _laneZone = zone;
         _laneDirection = direction.normalized;
+        _boostImpulseTimer = boostSmashDuration;
     }
 
     // Only the zone that set the lane can end it (two touching zones do not cancel each other)
     public void ExitLane(DashZone zone)
     {
         if (_laneZone == zone)
+        {
+            float exitSpd = zone != null && zone.ExitSpeed > 0f ? zone.ExitSpeed : 18f;
+            _kinematicMotor.BaseVelocity = _laneDirection * exitSpd;
+            _boostMomentumTimer = BoostMomentumTime;
+            _boostImpulseTimer = boostSmashDuration;
+            _boostCap = exitSpd;
             _laneZone = null;
+        }
     }
 
     // Charge: gives extra dashes (on top of the normal one) until the ball lands or dies. Needs the Fire power to be used.
@@ -1337,6 +1496,13 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _airTime = 0f;   // the impact has its own sound: no extra landing sound
         Vfx.PlayTinted(VfxType.GroundPoundImpact, FeetPosition, _kinematicMotor.TransientRotation, CurrentPower);
 
+        if (groundPoundImpulseSource != null)
+        {
+            groundPoundImpulseSource.GenerateImpulse(groundPoundShakeForce);
+        }
+
+        TriggerGroundPoundDistortion();
+
         // NonAlloc = fills our existing array instead of creating a new one
         int count = Physics.OverlapSphereNonAlloc(transform.position, GroundPoundRadius,
             _impactHits, DestructibleLayers, QueryTriggerInteraction.Ignore);
@@ -1352,6 +1518,81 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             {
                 _impactTargets.Add(destructible);
                 destructible.TakeHit(HitSource.GroundPound, -_kinematicMotor.CharacterUp);
+            }
+        }
+    }
+
+    private void InitDistortionVolume()
+    {
+        if (groundPoundDistortionVolume != null)
+        {
+            groundPoundDistortionVolume.weight = 0f;
+
+            VolumeProfile profile = Application.isPlaying ? groundPoundDistortionVolume.profile : groundPoundDistortionVolume.sharedProfile;
+            if (profile != null)
+            {
+                if (!profile.TryGet(out _lensDistortion))
+                {
+                    _lensDistortion = profile.Add<LensDistortion>(true);
+                }
+                if (!profile.TryGet(out _chromaticAberration))
+                {
+                    _chromaticAberration = profile.Add<ChromaticAberration>(true);
+                }
+
+                _lensDistortion.intensity.overrideState = true;
+                _lensDistortion.intensity.value = peakLensDistortion;
+
+                _chromaticAberration.intensity.overrideState = true;
+                _chromaticAberration.intensity.value = peakChromaticAberration;
+            }
+        }
+    }
+
+    private void TriggerGroundPoundDistortion()
+    {
+        if (groundPoundDistortionVolume == null || groundPoundDistortionDuration <= 0f) return;
+
+        if (_lensDistortion == null)
+        {
+            InitDistortionVolume();
+        }
+
+        if (_lensDistortion != null)
+        {
+            _lensDistortion.intensity.value = peakLensDistortion;
+        }
+        if (_chromaticAberration != null)
+        {
+            _chromaticAberration.intensity.value = peakChromaticAberration;
+        }
+
+        _distortionTimer = groundPoundDistortionDuration;
+        float initialWeight = groundPoundDistortionCurve != null ? groundPoundDistortionCurve.Evaluate(0f) : 0f;
+        groundPoundDistortionVolume.weight = initialWeight;
+    }
+
+    private void UpdateDistortionEffect(float deltaTime)
+    {
+        if (_distortionTimer > 0f)
+        {
+            _distortionTimer -= deltaTime;
+            if (_distortionTimer > 0f)
+            {
+                float elapsed = groundPoundDistortionDuration - _distortionTimer;
+                float normalized = Mathf.Clamp01(elapsed / groundPoundDistortionDuration);
+                float curveVal = groundPoundDistortionCurve != null ? groundPoundDistortionCurve.Evaluate(normalized) : 0f;
+                if (groundPoundDistortionVolume != null)
+                {
+                    groundPoundDistortionVolume.weight = curveVal;
+                }
+            }
+            else
+            {
+                if (groundPoundDistortionVolume != null)
+                {
+                    groundPoundDistortionVolume.weight = 0f;
+                }
             }
         }
     }
@@ -1534,6 +1775,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         _kinematicMotor.BaseVelocity = _dashDirection * _boostExitSpeed;
                         _boostCap = _boostExitSpeed;
                         _boostMomentumTimer = BoostMomentumTime;
+                        _boostImpulseTimer = Mathf.Max(_boostImpulseTimer, boostSmashDuration);
                         _boostActive = false;
                     }
                     else
@@ -1654,6 +1896,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _boostRequested = false;
         _boostActive = false;
         _boostMomentumTimer = 0f;
+        _boostImpulseTimer = 0f;
         _climbing = false;
         _climbCooldownTimer = 0f;
         _slopeContactTimer = 0f;
@@ -1677,6 +1920,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _padLaunchSpeed = 0f;
         _recentSlamTimer = 0f;
         _airTime = 0f;
+
+        _distortionTimer = 0f;
+        if (groundPoundDistortionVolume != null)
+            groundPoundDistortionVolume.weight = 0f;
 
         // gravity is back to normal (the rotation was already reset by SetRotation above)
         _gravityFlipped = false;
@@ -1709,20 +1956,19 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         // only the chosen power is true, all the others are false
         // Each element gives its own powers:
         //   Fire = dash | Air = double jump + glide | Earth = ground pound | Water = wall jump + vapor (gravity flip)
-        hasDash = newPower == PowerUpType.Fire;
+        bool isBaseOrAether = newPower == PowerUpType.None || newPower == PowerUpType.Aether;
+
+        hasDash = newPower == PowerUpType.Fire || (isBaseOrAether && defaultDash);
         if (!hasDash)
         {
             _dashCharges = 0;   // a new power cancels the extra dashes
             _superDashMultiplier = 1f;
         }
-        hasDoubleJump = newPower == PowerUpType.Air;
-        hasGlide = newPower == PowerUpType.Air;
-        hasGroundPound = newPower == PowerUpType.Earth;
-        hasWallJump = newPower == PowerUpType.Water;
+        hasDoubleJump = newPower == PowerUpType.Air || (isBaseOrAether && defaultDoubleJump);
+        hasGlide = newPower == PowerUpType.Air || (isBaseOrAether && defaultGlide);
+        hasGroundPound = newPower == PowerUpType.Earth || (isBaseOrAether && defaultGroundPound);
+        hasWallJump = newPower == PowerUpType.Water || (isBaseOrAether && defaultWallJump);
         hasGravityFlip = newPower == PowerUpType.Water;
-
-        // Aether (the dark final-level power) and None (the base ball) turn every ability off above.
-        // When Aether gets its own ability, add a line here, for example:  hasXxx = newPower == PowerUpType.Aether;
 
         // losing the Vapor power while upside down: put the character back on the floor
         if (_gravityFlipped && !hasGravityFlip)
@@ -1750,6 +1996,32 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
     public void OnGroundHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint, ref HitStabilityReport hitStabilityReport)
     {
+        if (hitCollider != null)
+        {
+            DestructibleObject destructible = hitCollider.GetComponentInParent<DestructibleObject>();
+            if (destructible != null)
+            {
+                if (destructible.BreakableByTouch)
+                {
+                    Vector3 breakDir = _preMoveVelocity.sqrMagnitude > 0.01f ? _preMoveVelocity.normalized : -_kinematicMotor.CharacterUp;
+                    destructible.TakeHit(HitSource.Touch, breakDir);
+                    if (destructible.IsBroken)
+                    {
+                        _kinematicMotor.ForceUnground();
+                        _kinematicMotor.BaseVelocity = _preMoveVelocity;
+                    }
+                }
+                else if (CanBreakOnBoostImpulse(destructible, hitNormal))
+                {
+                    destructible.TakeHit(HitSource.Speed, -_kinematicMotor.CharacterUp);
+                    if (destructible.IsBroken)
+                    {
+                        _kinematicMotor.ForceUnground();
+                        _kinematicMotor.BaseVelocity = _preMoveVelocity;
+                    }
+                }
+            }
+        }
     }
 
     // Called when the character hits something while moving.
@@ -1760,6 +2032,30 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         {
             case CharacterState.Default:
                 {
+                    // Check for breakable block impact (Touch breakable or chevron boost-impulse)
+                    DestructibleObject destructible = hitCollider.GetComponentInParent<DestructibleObject>();
+                    if (destructible != null)
+                    {
+                        if (destructible.BreakableByTouch)
+                        {
+                            Vector3 breakDir = _preMoveVelocity.sqrMagnitude > 0.01f ? _preMoveVelocity.normalized : -hitNormal;
+                            destructible.TakeHit(HitSource.Touch, breakDir);
+                            if (destructible.IsBroken)
+                            {
+                                _kinematicMotor.BaseVelocity = _preMoveVelocity;
+                            }
+                        }
+                        else if (CanBreakOnBoostImpulse(destructible, hitNormal))
+                        {
+                            Vector3 breakDir = _preMoveVelocity.sqrMagnitude > 0.01f ? _preMoveVelocity.normalized : -hitNormal;
+                            destructible.TakeHit(HitSource.Speed, breakDir);
+                            if (destructible.IsBroken)
+                            {
+                                _kinematicMotor.BaseVelocity = _preMoveVelocity;
+                            }
+                        }
+                    }
+
                     // slope climb: a fast run into a vertical wall (works on the ground too)
                     HandleClimbHit(hitNormal);
 
@@ -1790,7 +2086,34 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         destructible.TakeHit(HitSource.Dash, _dashDirection);
                     break;
                 }
+
+            case CharacterState.GroundPound:
+                {
+                    DestructibleObject destructible = hitCollider.GetComponentInParent<DestructibleObject>();
+                    if (destructible != null && destructible.BreakableByTouch)
+                    {
+                        Vector3 breakDir = _preMoveVelocity.sqrMagnitude > 0.01f ? _preMoveVelocity.normalized : -hitNormal;
+                        destructible.TakeHit(HitSource.Touch, breakDir);
+                        if (destructible.IsBroken)
+                        {
+                            _kinematicMotor.BaseVelocity = _preMoveVelocity;
+                        }
+                    }
+                    break;
+                }
         }
+    }
+
+    private bool CanBreakOnBoostImpulse(DestructibleObject destructible, Vector3 hitNormal)
+    {
+        if (destructible == null || destructible.IsBroken) return false;
+
+        // ONLY allowed if boost impulse is active from chevron speed pads
+        if (!isBoostImpulseActive) return false;
+
+        // Check if moving into the obstacle
+        Vector3 moveDir = _preMoveVelocity.sqrMagnitude > 0.01f ? _preMoveVelocity.normalized : _kinematicMotor.CharacterForward;
+        return Vector3.Dot(moveDir, -hitNormal) > 0.05f;
     }
 
     // Called right after the motor checked the ground (the walkthrough uses it to detect landing)

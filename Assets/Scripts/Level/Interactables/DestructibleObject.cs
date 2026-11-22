@@ -5,13 +5,16 @@ using UnityEngine;
 public enum HitSource
 {
     Dash,
-    GroundPound
+    GroundPound,
+    Speed,
+    Touch
 }
 
 // Put this on any object with a (non-trigger) Collider that the player can break.
 // The player calls TakeHit() from CC_ELEMENTO:
 //   - during a dash, in OnMovementHit
 //   - on a ground pound landing, in GroundPoundImpact (shockwave)
+//   - on high-speed / speed-lane / dash-boost impacts, in OnMovementHit and OnGroundHit
 //
 // CHAIN REACTION: when a block breaks, the blocks touching it in the direction of the hit break one
 // after the other (ChainDelay apart), like a Mario ground pound through a column or a Sonic dash
@@ -25,6 +28,14 @@ public class DestructibleObject : MonoBehaviour, IResettable
     // Which power can break this object?
     public bool BreakableByDash = true;
     public bool BreakableByGroundPound = true;
+    [Tooltip("Can be broken by high-speed movement or speed zone launches")]
+    public bool BreakableBySpeed = true;
+
+    [Tooltip("Breaks immediately when touched or rolled into by the player, regardless of state or speed")]
+    public bool BreakableByTouch = false;
+
+    [Tooltip("If true, high-speed impact immediately breaks the object regardless of remaining HitsToBreak")]
+    public bool SpeedShattersInstantly = true;
 
     // How many hits it takes to break (1 = breaks right away)
     public int HitsToBreak = 1;
@@ -74,6 +85,10 @@ public class DestructibleObject : MonoBehaviour, IResettable
     {
         get { return _isBroken; }
     }
+
+    // Callbacks for feedback/VFX systems
+    public event System.Action<HitSource, Vector3> OnBreak;
+    public event System.Action OnReset;
 
     // One shared array for every block: the neighbor search makes no garbage
     private static readonly Collider[] _neighborHits = new Collider[16];
@@ -172,8 +187,11 @@ public class DestructibleObject : MonoBehaviour, IResettable
 
     private bool CanBeBrokenBy(HitSource source)
     {
+        if (BreakableByTouch) return true;
+        if (source == HitSource.Touch && !BreakableByTouch) return false;
         if (source == HitSource.Dash && !BreakableByDash) return false;
         if (source == HitSource.GroundPound && !BreakableByGroundPound) return false;
+        if (source == HitSource.Speed && !BreakableBySpeed) return false;
 
         return true;
     }
@@ -183,7 +201,14 @@ public class DestructibleObject : MonoBehaviour, IResettable
     {
         if (_isBroken) return;
 
-        _hitsTaken++;
+        if ((source == HitSource.Speed && SpeedShattersInstantly) || source == HitSource.Touch)
+        {
+            _hitsTaken = HitsToBreak;
+        }
+        else
+        {
+            _hitsTaken++;
+        }
 
         UpdateCracks();
 
@@ -211,6 +236,8 @@ public class DestructibleObject : MonoBehaviour, IResettable
 
         if (BreakEffect != null)
             BreakEffect.Play();
+
+        OnBreak?.Invoke(source, direction);
 
         // pass the hit on to the blocks in front of this one
         if (ChainReaction && direction.sqrMagnitude > 0.01f)
@@ -275,6 +302,8 @@ public class DestructibleObject : MonoBehaviour, IResettable
 
         if (BreakEffect != null)
             BreakEffect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        OnReset?.Invoke();
     }
 
     // The crack stage: the biggest of "starts cracked" and "how damaged it is now" (3 stages at most)

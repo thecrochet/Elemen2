@@ -251,6 +251,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LevelGoal
   FinishEffect: {fileID: 0}
   ExitSequence: {fileID: 4301404232051189757}
+  NextSceneName: 
 --- !u!114 &4301404232051189757
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -273,6 +274,7 @@ MonoBehaviour:
   PanelTime: 1.2
   FadeGroup: {fileID: 0}
   FadeTime: 0.3
+  NextSceneName: 
 --- !u!65 &3239390839962046984
 BoxCollider:
   m_ObjectHideFlags: 0

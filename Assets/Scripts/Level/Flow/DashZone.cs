@@ -125,11 +125,13 @@ public class DashZone : MonoBehaviour
         if (!other.TryGetComponent(out CC_ELEMENTO player)) return;
 
         PlayerInside = true;
+        player.ActivateBoostImpulse();
 
         if (Mode == ZoneMode.Lane)
         {
             player.EnterLane(this, Direction);
             Sfx.PlayAt(SfxType.LaneEnter, transform.position);
+            PlayEffect(other.bounds.center);
         }
 
         if (Mode == ZoneMode.SuperDash)

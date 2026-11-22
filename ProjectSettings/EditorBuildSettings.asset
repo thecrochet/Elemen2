@@ -14,6 +14,111 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Demo/PrefabLab.unity
     guid: 38f23081afa40694bb9138b57ba976ba
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_01.unity
+    guid: 258b9f15b89086c40a734a74ad2e9311
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_02.unity
+    guid: 69c39b221ef06814083a635930d38570
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_03.unity
+    guid: 0538c9d91b2d5134b9a8a3ab87dcf8f0
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_04.unity
+    guid: c1d86200076ec31449eaea88701dc223
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_05.unity
+    guid: 53a94bdf60cace14a968bece444e9f21
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_06.unity
+    guid: e5f61d4ea3a0f7549abf9bdc44bf2ebc
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_07.unity
+    guid: c77a955c62b907a4bb4f3d3ec1c91b8a
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_08.unity
+    guid: 545c0e492a051d0428ac271cc8a827f6
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_09.unity
+    guid: f21be2b7448333c45879f78d45dd22ed
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_10.unity
+    guid: da2e08d5747d6664dbff0ecdea6917a2
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_11.unity
+    guid: 9f65e05cf89f9e8449c65604e0f15b3c
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_12.unity
+    guid: dfe26fe8f5e80e045975cf2a722d7c4e
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_13.unity
+    guid: 09f1e71b1654ad342be0064f2194baa2
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_14.unity
+    guid: f7fad92a9cbe2db4591629301b6edff4
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_15.unity
+    guid: ae3bb69e450fb1d4ea913f49f1d2ae70
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_16.unity
+    guid: 2d378ce19cb3b2e4ebb53b3531653a9e
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_17.unity
+    guid: 3f30ae0557f35e540a43a8b4bde77262
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_18.unity
+    guid: 23496b0359e680141957362ac19d9f77
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_19.unity
+    guid: 69152a5ddde03b545a2f0a20d6525d3e
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_20.unity
+    guid: a449d616cc0b94a4693498577f958101
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_21.unity
+    guid: c96712dad6d1ae04ebf5c49593e6199e
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_22.unity
+    guid: 59f8e2a85260e6d4b94a98256de839db
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_23.unity
+    guid: 2d6b74bf87205d240b487f48accb64d1
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_24.unity
+    guid: 9e54f6211e629ac4a8f042563dc35b5e
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_25.unity
+    guid: 5f92914a85cec4e4d9d0c7d8825b8b85
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_26.unity
+    guid: c615f2d054da64d449b12dd15b13567c
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_27.unity
+    guid: d565ab0e61aa0ee439e28753d2d37243
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_28.unity
+    guid: c72de2874c13ba94abd6c9555d7ea876
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_29.unity
+    guid: 3486655776a23334f8ecf7b75187d26e
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_30.unity
+    guid: 3d922e0ef88e3464ebea637ac0e5304d
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_31.unity
+    guid: d0f6bf3f6eb1dfb4e94c9933343ff863
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_32.unity
+    guid: 9e7fc41e27189bd4d9d93e92efcaf5fe
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_33.unity
+    guid: 1e60c8806f0e02744996eb31ca4d41b1
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_34.unity
+    guid: c5bf0846e944286438e47d7f75d95e35
+  - enabled: 1
+    path: Assets/Scenes/Levels/World1_Fire/FINAL_PURPLE/Level_35.unity
+    guid: 19911ff0c8420c741b2b18c99f5a4750
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 6bc3fbc9c4da64a469990c67a32bbeab, type: 3}
   m_UseUCBPForAssetBundles: 0

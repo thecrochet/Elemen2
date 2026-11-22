@@ -268,23 +268,70 @@ public class LevelManager : MonoBehaviour, IResettable
         _loadTime = Mathf.Max(_loadTime, Time.time + secondsFromNow);
     }
 
+    public static string ResolveNextSceneName(string currentSceneName, string explicitNext = "")
+    {
+        if (!string.IsNullOrEmpty(explicitNext))
+        {
+            return explicitNext;
+        }
+
+        // Check if current scene follows pattern Level_XX
+        System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(currentSceneName, @"Level_(\d+)");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out int currentNum))
+        {
+            int nextNum = currentNum + 1;
+            string targetCandidate = "Level_" + nextNum.ToString("D2");
+            string targetCandidateAlt = "Level_" + nextNum.ToString();
+
+            int count = SceneManager.sceneCountInBuildSettings;
+            for (int i = 0; i < count; i++)
+            {
+                string path = SceneUtility.GetScenePathByBuildIndex(i);
+                string sceneName = System.IO.Path.GetFileNameWithoutExtension(path);
+                if (sceneName.Equals(targetCandidate, System.StringComparison.OrdinalIgnoreCase) ||
+                    sceneName.Equals(targetCandidateAlt, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return sceneName;
+                }
+            }
+        }
+
+        return "";
+    }
+
     private void LoadNextLevel()
     {
         // Update runs every frame, so make sure we only start loading once
         if (_loading) return;
         _loading = true;
 
-        if (!string.IsNullOrEmpty(NextSceneName))
+        string targetScene = ResolveNextSceneName(SceneManager.GetActiveScene().name, NextSceneName);
+        if (!string.IsNullOrEmpty(targetScene))
         {
-            SceneManager.LoadScene(NextSceneName);
+            SceneManager.LoadScene(targetScene);
             return;
         }
 
         int next = SceneManager.GetActiveScene().buildIndex + 1;
 
-        // after the last level, go back to the first scene (a hub or menu later)
-        if (next >= SceneManager.sceneCountInBuildSettings)
+        // after the last level, fall back to Hub/MainMenu or first scene
+        if (next < 0 || next >= SceneManager.sceneCountInBuildSettings)
+        {
             next = 0;
+            int count = SceneManager.sceneCountInBuildSettings;
+            for (int i = 0; i < count; i++)
+            {
+                string path = SceneUtility.GetScenePathByBuildIndex(i);
+                string sceneName = System.IO.Path.GetFileNameWithoutExtension(path);
+                if (sceneName.Equals("Hub", System.StringComparison.OrdinalIgnoreCase) ||
+                    sceneName.Equals("MainMenu", System.StringComparison.OrdinalIgnoreCase) ||
+                    sceneName.Equals("00_Tutorial", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    next = i;
+                    break;
+                }
+            }
+        }
 
         SceneManager.LoadScene(next);
     }

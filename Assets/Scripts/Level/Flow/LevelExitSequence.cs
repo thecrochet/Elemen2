@@ -52,6 +52,10 @@ public class LevelExitSequence : MonoBehaviour
     // How long the fade lasts (it ends when the next level loads)
     [Min(0.05f)] public float FadeTime = 0.3f;
 
+    [Header("Next Level Linking")]
+    [Tooltip("Explicit next scene name (e.g. Level_02). If empty, auto-resolves Level_(XX+1)")]
+    public string NextSceneName = "";
+
     private bool _playing;
 
     // Called by LevelGoal
@@ -76,6 +80,11 @@ public class LevelExitSequence : MonoBehaviour
 
         if (level != null)
         {
+            if (!string.IsNullOrEmpty(NextSceneName) && string.IsNullOrEmpty(level.NextSceneName))
+            {
+                level.NextSceneName = NextSceneName;
+            }
+
             // the HUD waits, and the next level waits for the animation + the panel
             level.HoldFinishPanel = !ShowPanelDuringExit;
             level.DelayNextLevel(animationTime + PanelTime);

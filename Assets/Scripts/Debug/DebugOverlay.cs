@@ -14,7 +14,7 @@ public class DebugOverlay : MonoBehaviour
 {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     public CC_ELEMENTO Player;
-    public bool StartVisible = true;
+    public bool StartVisible = false;
 
     private KinematicCharacterMotor _motor;
     private Checkpoint[] _checkpoints;

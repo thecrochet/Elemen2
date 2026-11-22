@@ -30,14 +30,14 @@ public class PlayerLab : MonoBehaviour
 
     [Header("Power mixer")]
     [Tooltip("On = the boxes below decide the powers. Off = the real power of the level (Starting Power, gates) is used.")]
-    public bool MixPowers = true;
+    public bool MixPowers = false;
     [Tooltip("Dash")] public bool Fire = true;
     [Tooltip("Double jump + glide")] public bool Air = true;
     [Tooltip("Ground pound")] public bool Earth = true;
     [Tooltip("Wall jump + gravity flip")] public bool Water = true;
 
     [Header("Panel")]
-    public bool ShowPanel = true;
+    public bool ShowPanel = false;
 
     [Tooltip("Ground that counts for the last-jump readout.")]
     public LayerMask GroundMask = ~0;

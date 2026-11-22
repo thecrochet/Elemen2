@@ -365,6 +365,26 @@ MonoBehaviour:
   BoostAcceleration: 12
   BoostMaxSpeed: 30
   BoostKeepWhilePushing: 1
+  boostSmashDuration: 0.5
+  defaultDash: 1
+  defaultDoubleJump: 1
+  defaultWallJump: 1
+  defaultGroundPound: 1
+  defaultGlide: 1
+  SlopeClimb: 1
+  ClimbNeedsBoost: 0
+  ClimbNeedsSlope: 1
+  ClimbSlopeMinAngle: 20
+  ClimbSlopeMemory: 0.3
+  ClimbMinSpeed: 17
+  ClimbSpeedConversion: 0.9
+  ClimbMaxSpeed: 22
+  ClimbDeceleration: 30
+  ClimbMaxTime: 0.8
+  ClimbWallPress: 2
+  ClimbContactGrace: 0.08
+  ClimbLedgeHop: 6
+  ClimbCooldown: 0.25
   DropThroughTime: 0.2
   GroundPoundWindup: 0.12
   GroundPoundSpeed: 40
@@ -373,9 +393,48 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   GroundPoundBounceStrength: 12
+  groundPoundImpulseSource: {fileID: 0}
+  groundPoundShakeForce: 2.5
+  groundPoundDistortionVolume: {fileID: 0}
+  peakLensDistortion: -0.45
+  peakChromaticAberration: 0.8
+  groundPoundDistortionDuration: 0.25
+  groundPoundDistortionCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 8
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.15
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: -1.5
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   GlideFallSpeed: 3
   GlideBrake: 160
-  GlideNeedsNewPress: 1
+  GlideNeedsNewPress: 0
   FlipLaunchSpeed: 10
   FlipCooldown: 0.15
   CurrentState: 0
