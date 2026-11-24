@@ -5,9 +5,12 @@ using UnityEditor;
 
 // An element gate: the ball runs THROUGH it and gets that element's power (this replaces the old power-up pickups).
 //
-//   - Only one power at a time: the LAST gate crossed wins.
-//   - Crossing the gate you already have does not change anything, but the gate flashes a little.
-//   - The gate never disappears and has nothing to save: the checkpoint already remembers the current power.
+//   - A power you OWN (earned from a boss, or ticked in CC_ELEMENTO > Cheat Owned Powers): the gate only flashes.
+//   - A power you do NOT own yet: the ball takes this element as its main color and gets the power until the end of the
+//     level. The LAST new gate crossed wins, and the color stays until the level ends (it is not a short morph).
+//   - The gate never disappears and has nothing to save: the checkpoint already remembers the ball's color,
+//     so after a death you come back with the color you had at the checkpoint.
+//   - The base gate (Element = None) puts the ball back to its plain base look.
 //
 // SETUP (the menu GameObject > Elemento > Interactables > Element Gate does all of this):
 //   root object = this script + a Box Collider (Is Trigger)  (about 1.2 wide, 3.2 tall, 1.5 deep)
@@ -56,7 +59,9 @@ public class ElementGate : MonoBehaviour
     {
         if (!other.TryGetComponent(out CC_ELEMENTO player)) return;
 
-        bool changed = player.CurrentPower != Element;
+        // an owned power never changes the ball (the base gate always does)
+        bool owned = Element != PowerUpType.None && player.OwnsPower(Element);
+        bool changed = !owned && player.CurrentPower != Element;
 
         if (changed)
         {

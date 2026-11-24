@@ -125,6 +125,34 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     public float DashCooldown = 0.25f;
 
     // ------------------------------------------------------------------
+    // BLOCK MOMENTUM - breaking blocks makes the dash / the slam stronger
+    // ------------------------------------------------------------------
+    // Every breakable block (DestructibleObject) the dash BREAKS adds to the dash: a bit of speed and a bit of TIME.
+    // A long row of blocks therefore carries you all the way through it (the dash reach is extended).
+    // Only a block that really breaks counts (a hit on a tough block that is not broken yet does not).
+    [Header("Block Momentum")]
+    [Tooltip("Speed added to the dash for every block it breaks (units/second)")]
+    public float DashBreakSpeedBonus = 3f;
+
+    [Tooltip("Time added to the dash for every block it breaks (seconds). This is what extends the reach.")]
+    public float DashBreakTimeBonus = 0.045f;
+
+    [Tooltip("The most extra time a dash can gain in total (the cap on the reach)")]
+    public float DashMaxExtraTime = 0.6f;
+
+    [Tooltip("The dash never gets faster than this (keep it under ~40 so the player cannot tunnel through walls)")]
+    public float DashMaxSpeed = 40f;
+
+    [Tooltip("After a dash that broke blocks you keep this part of the dash speed (0 = off, 0.6 = 60%). Never below the run speed, never above Boost Max Speed.")]
+    [Range(0f, 1f)] public float DashKeepSpeedFraction = 0.6f;
+
+    [Tooltip("Speed added to the ground pound for every block it falls through (units/second)")]
+    public float GroundPoundBreakSpeedBonus = 3f;
+
+    [Tooltip("The ground pound never gets faster than this (keep it under ~60)")]
+    public float GroundPoundMaxSpeed = 60f;
+
+    // ------------------------------------------------------------------
     // BOOST (a DashZone in Boost mode, a "dash ring") - works without any power
     // ------------------------------------------------------------------
     // After the boost you keep its speed this long (seconds), as long as you keep pushing the same way.
@@ -232,6 +260,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     public float FlipLaunchSpeed = 10f;
     // Short delay before the next flip
     public float FlipCooldown = 0.15f;
+    // A flip pressed this many seconds BEFORE it becomes possible (just before an orb, just before landing) still happens
+    public float FlipBufferTime = 0.12f;
 
     // ------------------------------------------------------------------
     // PRIVATE VARIABLES
@@ -254,6 +284,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     private float _coyoteTimer;
     private bool _jumpConsumed;
     private bool _doubleJumpConsumed;
+    private int _extraAirJumps;       // from an Air recharge orb: extra jumps in the air until we land (the triple jump)
+    private int _extraFlips;          // from a Water recharge orb: extra gravity flips until we land
     private bool _jumpedThisFrame;
 
     // wall jump
@@ -268,6 +300,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     private Vector3 _dashDirection;
     private Vector3 _dashVelocity;
     private float _dashTimeRemaining;
+    private float _dashSpeedNow;            // the dash speed, grows with every block broken
+    private float _dashExtraTime;           // the time gained from broken blocks (capped)
+    private int _dashBlocksBroken;          // blocks broken by this dash
+    private float _slamSpeed;               // the slam speed, grows with every block fallen through
     private float _dashCooldownTimer;
 
     // boost (see BoostLaunch)
@@ -355,6 +391,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     private bool _flipUsed;       // one flip per trip, given back when we land
     private bool _justFlipped;
     private float _flipCooldownTimer;
+    private float _flipBufferTimer;
     private CapsuleCollider _capsule;
 
     // the Motor of the character
@@ -373,6 +410,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _capsule = GetComponent<CapsuleCollider>();
 
         // start with the power chosen in the Inspector (None = no power)
+        _awakeDone = true;
         SetPower(StartingPower);
     }
 
@@ -396,7 +434,13 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         if (GroundPoundAction != null && GroundPoundAction.action.WasPressedThisFrame())
             _groundPoundRequested = true;
 
+        // the flip press is remembered for a moment (like the jump), so pressing a hair early still works
         if (GravityFlipAction != null && GravityFlipAction.action.WasPressedThisFrame())
+            _flipBufferTimer = FlipBufferTime;
+        else
+            _flipBufferTimer -= Time.deltaTime;
+
+        if (_flipBufferTimer > 0f)
             _flipRequested = true;
     }
 
@@ -543,7 +587,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                     else
                     {
                         // 2) slam: straight down, fast
-                        currentVelocity = -_kinematicMotor.CharacterUp * GroundPoundSpeed;
+                        currentVelocity = -_kinematicMotor.CharacterUp * _slamSpeed;
                     }
                     break;
                 }
@@ -640,6 +684,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                         _coyoteTimer = CoyoteTime;
                         _isBouncing = false;
                         _flipUsed = false;   // a new flip is possible after landing
+                        _extraAirJumps = 0;  // recharge orb extras only last until we land
+                        _extraFlips = 0;
 
                         // give back the dash too (after the cooldown)
                         if (_dashCooldownTimer <= 0f)
@@ -802,8 +848,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                 {
                     _glideLatched = true;
                     Sfx.Play(SfxType.GlideOpen);
-                    Vfx.PlayTinted(VfxType.GlideOpen, BallCenter, Quaternion.identity, CurrentPower);
-                    Vfx.SetLoop(VfxType.GlideStream, true);
+                    Vfx.PlayTinted(VfxType.GlideOpen, BallCenter, Quaternion.identity, PowerUpType.Air);
+                    Vfx.SetLoop(VfxType.GlideStream, true, PowerUpType.Air);
                     _glideSpeedCap = _isRunning ? RunSpeed : MaxAirSpeed;
                 }
 
@@ -824,7 +870,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         bool onWall = hasWallJump && _wallContactTimer > 0f && pushingIntoWall;
 
         // sparks while we slide down the wall
-        Vfx.SetLoop(VfxType.WallSlide, onWall && Vector3.Dot(vertical, up) < 0f);
+        Vfx.SetLoop(VfxType.WallSlide, onWall && Vector3.Dot(vertical, up) < 0f, PowerUpType.Water);
 
         if (onWall && Vector3.Dot(vertical, up) < 0f)
         {
@@ -875,13 +921,19 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             ApplyWallJump(ref currentVelocity);
         }
         // 3) double jump: in the air, and the double jump is not used yet
-        else if (hasDoubleJump && !_doubleJumpConsumed && _coyoteTimer <= 0f)
+        //    (an Air recharge orb adds extra jumps on top: double jump -> triple jump)
+        else if (hasDoubleJump && (!_doubleJumpConsumed || _extraAirJumps > 0) && _coyoteTimer <= 0f)
         {
             ApplyJump(ref currentVelocity);
             Sfx.Play(SfxType.DoubleJump);
-            Vfx.PlayTinted(VfxType.DoubleJump, FeetPosition, _kinematicMotor.TransientRotation, CurrentPower);
+            Vfx.PlayTinted(VfxType.DoubleJump, FeetPosition, _kinematicMotor.TransientRotation, PowerUpType.Air);
+            RaiseMove(PowerUpType.Air, MorphDoubleJumpTime);
 
-            _doubleJumpConsumed = true;
+            // the normal double jump is spent first, then the extra ones from the orb
+            if (!_doubleJumpConsumed)
+                _doubleJumpConsumed = true;
+            else
+                _extraAirJumps--;
         }
     }
 
@@ -1017,7 +1069,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         if (_jumpBufferTimer > 0f)
         {
             Sfx.Play(SfxType.WallJump);
-            Vfx.PlayTinted(VfxType.WallJump, BallCenter - _climbWallNormal * 0.5f, Quaternion.identity, CurrentPower);
+            Vfx.PlayTinted(VfxType.WallJump, BallCenter - _climbWallNormal * 0.5f, Quaternion.identity, PowerUpType.Water);
 
             _kinematicMotor.ForceUnground();
             currentVelocity = (_climbWallNormal * WallJumpHorizontalSpeed) + (up * WallJumpVerticalSpeed);
@@ -1048,7 +1100,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         _kinematicMotor.ForceUnground();
         currentVelocity = (up * _climbSpeed) + (-_climbWallNormal * ClimbWallPress);
-        Vfx.SetLoop(VfxType.WallSlide, true);
+        Vfx.SetLoop(VfxType.WallSlide, true, PowerUpType.Water);
     }
 
     private void EndClimb()
@@ -1078,7 +1130,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     private void ApplyWallJump(ref Vector3 currentVelocity)
     {
         Sfx.Play(SfxType.WallJump);
-        Vfx.PlayTinted(VfxType.WallJump, BallCenter - _wallNormal * 0.5f, Quaternion.identity, CurrentPower);
+        Vfx.PlayTinted(VfxType.WallJump, BallCenter - _wallNormal * 0.5f, Quaternion.identity, PowerUpType.Water);
+        RaiseMove(PowerUpType.Water, MorphWallJumpTime);
 
         _kinematicMotor.ForceUnground();
 
@@ -1166,6 +1219,43 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     public int DashCharges
     {
         get { return _dashCharges + (_superDashMultiplier > 1f ? 1 : 0); }
+    }
+
+    // ------------------------------------------------------------------
+    // RECHARGE ORB (called by RechargeOrb)
+    // ------------------------------------------------------------------
+    // Gives ONE extra use of the ability of "power", until the ball lands (or dies):
+    //   Fire  = one extra dash
+    //   Air   = one extra jump in the air (double jump becomes a triple jump)
+    //   Water = one extra gravity flip (flip, then flip back in mid air)
+    // Returns true if the orb was used. False = the ball doesn't have that power right now,
+    // or can't use it (dead, finished): the orb then stays where it is.
+    public bool GiveRecharge(PowerUpType power)
+    {
+        if (CurrentState == CharacterState.Dead || CurrentState == CharacterState.Finished) return false;
+        if (!HasAbilityOf(power)) return false;
+
+        switch (power)
+        {
+            case PowerUpType.Fire:
+                if (!hasDash) return false;
+                AddDashCharge(1);
+                _dashCooldownTimer = 0f;   // the extra dash is ready right away
+                return true;
+
+            case PowerUpType.Air:
+                if (!hasDoubleJump) return false;
+                _extraAirJumps = 1;
+                return true;
+
+            case PowerUpType.Water:
+                if (!hasGravityFlip) return false;
+                _extraFlips = 1;
+                _flipCooldownTimer = 0f;   // the extra flip is ready right away
+                return true;
+        }
+
+        return false;
     }
 
     // True while a Lane zone forces the dash direction
@@ -1301,6 +1391,18 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         return true;
     }
 
+    // Like LaunchFromPad, but ONLY a ground pound counts: a normal landing does nothing and
+    // returns false (used by the Earth hover pad, which you stand on until you slam it).
+    public bool LaunchFromPadSlamOnly(float groundPoundStrength)
+    {
+        bool inSlam = CurrentState == CharacterState.GroundPound && _groundPoundWindupRemaining <= 0f;
+        bool justSlammed = CurrentState == CharacterState.Default && _recentSlamTimer > 0f;
+
+        if (!inSlam && !justSlammed) return false;
+
+        return LaunchFromPad(0f, groundPoundStrength);
+    }
+
     private void HandlePadLaunch(ref Vector3 currentVelocity)
     {
         if (_padLaunchSpeed <= 0f) return;
@@ -1335,7 +1437,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     {
         Sfx.Play(SfxType.GroundPoundImpact);
         _airTime = 0f;   // the impact has its own sound: no extra landing sound
-        Vfx.PlayTinted(VfxType.GroundPoundImpact, FeetPosition, _kinematicMotor.TransientRotation, CurrentPower);
+        Vfx.PlayTinted(VfxType.GroundPoundImpact, FeetPosition, _kinematicMotor.TransientRotation, PowerUpType.Earth);
 
         // NonAlloc = fills our existing array instead of creating a new one
         int count = Physics.OverlapSphereNonAlloc(transform.position, GroundPoundRadius,
@@ -1361,7 +1463,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // ------------------------------------------------------------------
     private void HandleFlipInput()
     {
-        if (_flipRequested && hasGravityFlip && !_flipUsed
+        if (_flipRequested && hasGravityFlip && (!_flipUsed || _extraFlips > 0)
             && _flipCooldownTimer <= 0f
             && CurrentState == CharacterState.Default)
         {
@@ -1376,6 +1478,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     // character is rotated, jumping, landing, wall jumping... all work on the ceiling too.
     private void FlipGravity()
     {
+        // the first flip of a trip is free; a second one costs the extra flip from a Water orb
+        if (_flipUsed && _extraFlips > 0)
+            _extraFlips--;
+
         Quaternion oldRotation = _kinematicMotor.TransientRotation;
 
         // 1) rotate 180 degrees around the FORWARD axis (so the character keeps facing the same way)
@@ -1406,10 +1512,12 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
         _flipUsed = true;
         _flipCooldownTimer = FlipCooldown;
+        _flipBufferTimer = 0f;
         _justFlipped = true;
 
         Sfx.Play(SfxType.GravityFlip);
-        Vfx.PlayTinted(VfxType.GravityFlip, BallCenter, Quaternion.identity, CurrentPower);
+        Vfx.PlayTinted(VfxType.GravityFlip, BallCenter, Quaternion.identity, PowerUpType.Water);
+        RaiseMove(PowerUpType.Water, MorphFlipTime);
     }
 
     // ------------------------------------------------------------------
@@ -1471,8 +1579,11 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                             _dashCharges--;
 
                         // cache the dash velocity (like the charging velocity)
-                        _dashVelocity = _dashDirection * DashSpeed;
+                        _dashSpeedNow = DashSpeed;
+                        _dashVelocity = _dashDirection * _dashSpeedNow;
                         _dashTimeRemaining = DashDuration;
+                        _dashExtraTime = 0f;
+                        _dashBlocksBroken = 0;
 
                         // a super dash: the speed stays the same, it just lasts longer (so it goes further), once
                         if (_superDashMultiplier > 1f)
@@ -1485,8 +1596,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                     }
 
                     Sfx.Play(SfxType.Dash);
-                    Vfx.PlayTinted(VfxType.DashStart, BallCenter, Quaternion.identity, CurrentPower);
-                    Vfx.SetLoop(VfxType.DashTrail, true);
+                    Vfx.PlayTinted(VfxType.DashStart, BallCenter, Quaternion.identity, PowerUpType.Fire);
+                    Vfx.SetLoop(VfxType.DashTrail, true, PowerUpType.Fire);
                     Vfx.SetLoop(VfxType.RunTrail, false);
 
                     // the air loops stop while dashing (AirMovement does not run during a dash)
@@ -1498,9 +1609,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             case CharacterState.GroundPound:
                 {
                     _groundPoundWindupRemaining = GroundPoundWindup;
+                    _slamSpeed = GroundPoundSpeed;
                     _lastSlamGround = null;
                     Sfx.Play(SfxType.GroundPoundStart);
-                    Vfx.PlayTinted(VfxType.GroundPoundStart, BallCenter, Quaternion.identity, CurrentPower);
+                    Vfx.PlayTinted(VfxType.GroundPoundStart, BallCenter, Quaternion.identity, PowerUpType.Earth);
 
                     // the air loops stop during the slam
                     Vfx.SetLoop(VfxType.GlideStream, false);
@@ -1539,7 +1651,24 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                     else
                     {
                         // keep a little momentum instead of stopping dead
-                        _kinematicMotor.BaseVelocity = _dashDirection * MaxGroundSpeed;
+                        float exitSpeed = MaxGroundSpeed;
+
+                        // BLOCK MOMENTUM: a dash that broke blocks keeps part of its speed (the boost momentum
+                        // system holds the speed limit up for a moment, as long as you keep pushing)
+                        if (_dashBlocksBroken > 0 && DashKeepSpeedFraction > 0f)
+                        {
+                            float kept = Mathf.Clamp(_dashSpeedNow * DashKeepSpeedFraction, MaxGroundSpeed, Mathf.Max(MaxGroundSpeed, BoostMaxSpeed));
+
+                            if (kept > MaxGroundSpeed)
+                            {
+                                exitSpeed = kept;
+                                _boostCap = kept;
+                                _boostMomentumTimer = BoostMomentumTime;
+                            }
+                        }
+
+                        _kinematicMotor.BaseVelocity = _dashDirection * exitSpeed;
+                        _dashBlocksBroken = 0;
                     }
 
                     _dashCooldownTimer = DashCooldown;
@@ -1640,6 +1769,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _coyoteTimer = 0f;
         _jumpConsumed = false;
         _doubleJumpConsumed = false;
+        _extraAirJumps = 0;
+        _extraFlips = 0;
         _jumpedThisFrame = false;
 
         _wallContactTimer = 0f;
@@ -1650,6 +1781,10 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _dashUsed = false;
         _dashCooldownTimer = 0f;
         _dashVelocity = Vector3.zero;
+        _dashSpeedNow = 0f;
+        _dashExtraTime = 0f;
+        _dashBlocksBroken = 0;
+        _slamSpeed = GroundPoundSpeed;
 
         _boostRequested = false;
         _boostActive = false;
@@ -1684,6 +1819,7 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         _flipUsed = false;
         _justFlipped = false;
         _flipCooldownTimer = 0f;
+        _flipBufferTimer = 0f;
 
         // 5) the power we had when we reached the checkpoint
         SetPower(power);
@@ -1693,42 +1829,117 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
     }
 
     // ------------------------------------------------------------------
-    // POWER-UPS (called by ElementGate)
+    // POWERS
     // ------------------------------------------------------------------
-    // Only ONE element at a time: picking a new one replaces the old one.
-    // Choose the power you start with here (None = no power). Handy for testing.
+    // Two sources of powers:
+    //   1) OWNED powers = earned from a boss, kept forever (saved), or ticked here for testing.
+    //   2) The GATE power = the last element gate crossed that you did NOT own. It lasts until the end
+    //      of the level (or until you die back to a checkpoint that was before the gate).
+    //
+    // Choose the base look you start the level with here (None = the gold Base Spark, Aether = the dark tutorial ball).
     public PowerUpType StartingPower = PowerUpType.None;
 
-    // the power the player has right now (BallVisuals reads this to pick the material)
+    [Header("Owned powers")]
+    // Read the powers earned from the bosses (saved on this computer under "Unlocked_Powers")
+    public bool UseSavedPowers = true;
+
+    // CHEAT: tick the powers you want to own right now, without any boss
+    public PowerMask CheatOwnedPowers = PowerMask.None;
+
+    [Header("Morph time (how long the ball wears the skin of a short move)")]
+    public float MorphDoubleJumpTime = 0.30f;
+    public float MorphWallJumpTime = 0.30f;
+    public float MorphFlipTime = 0.35f;
+
+    // The look of the ball (its "base skin") AND the gate power. BallVisuals and the checkpoint read this.
     public PowerUpType CurrentPower { get; private set; } = PowerUpType.None;
 
+    // A short move happened (double jump, wall jump, flip): BallVisuals morphs the ball for "seconds".
+    // Long moves (dash, ground pound, glide) are read by BallVisuals from the state, so they are not sent here.
+    public event System.Action<PowerUpType, float> MoveStarted;
+
+    private void RaiseMove(PowerUpType element, float seconds)
+    {
+        if (MoveStarted != null)
+            MoveStarted(element, seconds);
+    }
+
+    // The level's loadout (set by LevelLoadout). No LevelLoadout in the scene = every power allowed.
+    private int _allowedMask = int.MaxValue;
+    private bool _freeMode;
+    private bool _unlockAll;
+    private bool _awakeDone;
+
+    public void SetLoadout(PowerMask allowed, bool freeMode, bool unlockAll)
+    {
+        _allowedMask = (int)allowed;
+        _freeMode = freeMode;
+        _unlockAll = unlockAll;
+
+        // if the character is already running, the abilities are recomputed right away
+        if (_awakeDone)
+            SetPower(CurrentPower);
+    }
+
+    // true if this power is earned (boss, or the cheat ticks, or unlock-all) AND the level allows it.
+    // Free mode ignores the level's list: everything you earned works.
+    public bool OwnsPower(PowerUpType power)
+    {
+        int bit = PowerMaskUtil.Bit(power);
+        if (bit == 0) return false;
+
+        int unlocked = (int)CheatOwnedPowers;
+
+        if (UseSavedPowers)
+            unlocked |= PowerSave.Mask;
+
+        if (_unlockAll)
+            unlocked = int.MaxValue;
+
+        if (!_freeMode)
+            unlocked &= _allowedMask;
+
+        return (unlocked & bit) != 0;
+    }
+
+    // the ability exists if we own it, or if the gate gave it to us
+    private bool HasAbilityOf(PowerUpType power)
+    {
+        return CurrentPower == power || OwnsPower(power);
+    }
+
+    // Called by ElementGate (a new power), by Respawn (the checkpoint skin) and at the start.
     public void SetPower(PowerUpType newPower)
     {
         CurrentPower = newPower;
 
-        // only the chosen power is true, all the others are false
         // Each element gives its own powers:
         //   Fire = dash | Air = double jump + glide | Earth = ground pound | Water = wall jump + vapor (gravity flip)
-        hasDash = newPower == PowerUpType.Fire;
+        hasDash = HasAbilityOf(PowerUpType.Fire);
         if (!hasDash)
         {
-            _dashCharges = 0;   // a new power cancels the extra dashes
+            _dashCharges = 0;   // losing the power cancels the extra dashes
             _superDashMultiplier = 1f;
         }
-        hasDoubleJump = newPower == PowerUpType.Air;
-        hasGlide = newPower == PowerUpType.Air;
-        hasGroundPound = newPower == PowerUpType.Earth;
-        hasWallJump = newPower == PowerUpType.Water;
-        hasGravityFlip = newPower == PowerUpType.Water;
+        hasDoubleJump = HasAbilityOf(PowerUpType.Air);
+        hasGlide = hasDoubleJump;
+        if (!hasDoubleJump)
+            _extraAirJumps = 0;
 
-        // Aether (the dark final-level power) and None (the base ball) turn every ability off above.
-        // When Aether gets its own ability, add a line here, for example:  hasXxx = newPower == PowerUpType.Aether;
+        hasGroundPound = HasAbilityOf(PowerUpType.Earth);
+
+        hasWallJump = HasAbilityOf(PowerUpType.Water);
+        hasGravityFlip = hasWallJump;
+        if (!hasGravityFlip)
+            _extraFlips = 0;
+
+        // Aether and None have no ability yet. When Aether gets one, add a line here.
 
         // losing the Vapor power while upside down: put the character back on the floor
         if (_gravityFlipped && !hasGravityFlip)
             FlipGravity();
 
-        // the right ambient particles for this element
+        // the ambient particles follow the BASE skin
         Vfx.SetPower(newPower);
     }
 
@@ -1787,7 +1998,27 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
                     DestructibleObject destructible = hitCollider.GetComponentInParent<DestructibleObject>();
 
                     if (destructible != null)
+                    {
+                        bool wasBroken = destructible.IsBroken;
                         destructible.TakeHit(HitSource.Dash, _dashDirection);
+
+                        // BLOCK MOMENTUM: a block that broke because of us makes the dash faster and longer
+                        // (not for a boost: a boost's speed and time belong to its ring)
+                        if (!_boostActive && !wasBroken && destructible.IsBroken)
+                        {
+                            _dashBlocksBroken++;
+
+                            _dashSpeedNow = Mathf.Min(DashMaxSpeed, _dashSpeedNow + DashBreakSpeedBonus);
+                            _dashVelocity = _dashDirection * _dashSpeedNow;
+
+                            float extra = Mathf.Min(DashBreakTimeBonus, DashMaxExtraTime - _dashExtraTime);
+                            if (extra > 0f)
+                            {
+                                _dashExtraTime += extra;
+                                _dashTimeRemaining += extra;
+                            }
+                        }
+                    }
                     break;
                 }
         }
@@ -1815,6 +2046,9 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
 
             if (groundBlock != null && groundBlock.IsBroken)
             {
+                // BLOCK MOMENTUM: every block we fall through makes the slam faster
+                _slamSpeed = Mathf.Min(GroundPoundMaxSpeed, _slamSpeed + GroundPoundBreakSpeedBonus);
+
                 _lastSlamGround = groundCollider;
                 _kinematicMotor.ForceUnground();
                 return;
@@ -1827,6 +2061,8 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             // didn't run during the ground pound). This lets a jump pressed at the landing work.
             _jumpConsumed = false;
             _doubleJumpConsumed = false;
+            _extraAirJumps = 0;
+            _extraFlips = 0;
             _coyoteTimer = CoyoteTime;
 
             // and the bounce starts in the next UpdateVelocity

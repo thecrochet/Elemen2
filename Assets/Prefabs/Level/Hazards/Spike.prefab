@@ -110,6 +110,7 @@ MonoBehaviour:
   Sides: 3
   Radius: 0.6
   Height: 1
+  InnerRadius: 0.42
   Count: 1
   Spacing: 0
   RotationOffset: 90

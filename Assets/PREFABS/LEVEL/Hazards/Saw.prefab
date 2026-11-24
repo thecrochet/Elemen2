@@ -225,6 +225,7 @@ MonoBehaviour:
   Sides: 12
   Radius: 1
   Height: 0.2
+  InnerRadius: 0.42
   Count: 1
   Spacing: 0
   RotationOffset: 0

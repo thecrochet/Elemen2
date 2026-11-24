@@ -1,10 +1,16 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 
-// Makes the sphere LOOK like it rolls and changes its material depending on the power.
+// Makes the sphere LOOK like it rolls, shows the BASE SKIN, and MORPHS into an element's skin while a move lasts.
 //
 // The physics are still done by the Kinematic Character Motor (a capsule that slides).
-// This script only rotates the VISUAL sphere, so it never touches the collision.
+// This script only rotates and colors the VISUAL sphere, so it never touches the collision.
+//
+// The two looks:
+//   BASE SKIN  = the ball's material (gold Base Spark, dark Aether, or the element of the last NEW gate you crossed).
+//   MORPH SHELL = a second sphere, a little bigger, child of the ball mesh. During a move (dash, ground pound,
+//                 glide, double jump, wall jump, gravity flip) it grows from the core in the element's material,
+//                 stays while the move lasts, then shrinks back. If the move's element is the base skin, nothing happens.
 //
 // Put it on the same object as CC_ELEMENTO.
 public class BallVisuals : MonoBehaviour
@@ -39,6 +45,25 @@ public class BallVisuals : MonoBehaviour
     public Material AetherMaterial;
 
     // ------------------------------------------------------------------
+    // MORPH (the element skin during a move)
+    // ------------------------------------------------------------------
+    [Header("Morph shell")]
+    // A sphere child of the Ball Mesh (no collider). Leave empty = no morph (the ball only changes with the gate).
+    public Renderer MorphShell;
+
+    // Size of the shell compared to the ball (1.03 = 3 percent bigger, so it never flickers with the ball)
+    public float ShellScale = 1.03f;
+
+    // Seconds to grow in, and to shrink out (the spec: about 0.1 in, 0.25 to 0.3 out)
+    public float MorphInTime = 0.10f;
+    public float MorphOutTime = 0.28f;
+
+    [Header("Switch flash (a small pop of the ball)")]
+    // 0.15 = the ball swells 15 percent for a split second when the skin switches. 0 = no pop.
+    public float PopAmount = 0.15f;
+    public float PopTime = 0.12f;
+
+    // ------------------------------------------------------------------
     // CHARGE PULSE: the ball pulses while it holds extra dashes (from a Dash Charge zone)
     // ------------------------------------------------------------------
     // How much the ball grows and shrinks (0.12 = 12 percent). 0 = no pulse.
@@ -61,14 +86,47 @@ public class BallVisuals : MonoBehaviour
     private bool _wasDead;
     private Vector3 _baseScale;
 
+    // morph
+    private Transform _shellTransform;
+    private PowerUpType _shellElement = PowerUpType.None;   // None = no shell material chosen yet
+    private float _shellAmount;                             // 0 = hidden, 1 = fully shown
+    private PowerUpType _pulseElement = PowerUpType.None;   // a short move (double jump, wall jump, flip)
+    private float _pulseTimer;
+    private float _popTimer;
+
+    private void OnEnable()
+    {
+        if (Player != null)
+            Player.MoveStarted += OnMoveStarted;
+    }
+
+    private void OnDisable()
+    {
+        if (Player != null)
+            Player.MoveStarted -= OnMoveStarted;
+    }
+
     private void Start()
     {
         _lastPosition = transform.position;
         _rollRotation = BallMesh.rotation;
         _baseScale = BallMesh.localScale;
 
+        if (MorphShell != null)
+        {
+            _shellTransform = MorphShell.transform;
+            MorphShell.enabled = false;
+        }
+
         _shownPower = Player.CurrentPower;
         ApplyMaterial(_shownPower);
+    }
+
+    // a short move wants the morph for a moment
+    private void OnMoveStarted(PowerUpType element, float seconds)
+    {
+        _pulseElement = element;
+        _pulseTimer = seconds;
     }
 
     // LateUpdate runs after the motor moved the character, so we use the final position
@@ -79,6 +137,8 @@ public class BallVisuals : MonoBehaviour
         {
             if (BallRenderer.enabled)
                 BallRenderer.enabled = false;
+
+            HideShellNow();
 
             if (ParachuteVisual != null && ParachuteVisual.activeSelf)
                 ParachuteVisual.SetActive(false);
@@ -94,29 +154,53 @@ public class BallVisuals : MonoBehaviour
             BallRenderer.enabled = true;
             _lastPosition = transform.position;
 
-            UpdateMaterial();
+            // the checkpoint skin comes back (no pop: it is not a "switch")
+            _pulseTimer = 0f;
+            _popTimer = 0f;
+            _shownPower = Player.CurrentPower;
+            ApplyMaterial(_shownPower);
             return;
         }
 
         UpdateRolling();
         UpdateMaterial();
+        UpdateMorph();
         UpdateParachute();
-        UpdateChargePulse();
+        UpdateScale();
     }
 
-    // a soft heartbeat while the ball holds extra dashes (only the visual sphere is scaled, never the collision)
-    private void UpdateChargePulse()
+    // ------------------------------------------------------------------
+    // SCALE: charge heartbeat + the small pop of a switch (only the visual sphere, never the collision)
+    // ------------------------------------------------------------------
+    private void UpdateScale()
     {
-        if (PulseAmount <= 0f || Player.DashCharges <= 0)
+        float factor = 1f;
+
+        // a soft heartbeat while the ball holds extra dashes
+        if (PulseAmount > 0f && Player.DashCharges > 0)
         {
-            if (BallMesh.localScale != _baseScale)
-                BallMesh.localScale = _baseScale;
-            return;
+            // 0..1 with a quick rise and a slower fall, like a heartbeat
+            float wave = Mathf.Abs(Mathf.Sin(Time.time * PulseSpeed * Mathf.PI));
+            factor += PulseAmount * wave;
         }
 
-        // 0..1 with a quick rise and a slower fall, like a heartbeat
-        float wave = Mathf.Abs(Mathf.Sin(Time.time * PulseSpeed * Mathf.PI));
-        BallMesh.localScale = _baseScale * (1f + PulseAmount * wave);
+        // the switch flash: starts big, shrinks back fast
+        if (_popTimer > 0f)
+        {
+            _popTimer -= Time.deltaTime;
+            float k = Mathf.Clamp01(_popTimer / Mathf.Max(PopTime, 0.01f));
+            factor += PopAmount * k * k;
+        }
+
+        Vector3 scale = _baseScale * factor;
+        if (BallMesh.localScale != scale)
+            BallMesh.localScale = scale;
+    }
+
+    private void StartPop()
+    {
+        if (PopAmount > 0f)
+            _popTimer = PopTime;
     }
 
     // show the parachute only while the character glides
@@ -167,7 +251,7 @@ public class BallVisuals : MonoBehaviour
     }
 
     // ------------------------------------------------------------------
-    // MATERIAL
+    // BASE SKIN (changes only when a NEW gate is crossed, or at a respawn)
     // ------------------------------------------------------------------
     private void UpdateMaterial()
     {
@@ -176,32 +260,109 @@ public class BallVisuals : MonoBehaviour
 
         _shownPower = Player.CurrentPower;
         ApplyMaterial(_shownPower);
+        StartPop();
     }
 
     private void ApplyMaterial(PowerUpType power)
     {
-        Material material = NoPowerMaterial;
-
-        switch (power)
-        {
-            case PowerUpType.Fire:
-                material = FireMaterial;
-                break;
-            case PowerUpType.Air:
-                material = AirMaterial;
-                break;
-            case PowerUpType.Earth:
-                material = EarthMaterial;
-                break;
-            case PowerUpType.Water:
-                material = WaterMaterial;
-                break;
-            case PowerUpType.Aether:
-                material = AetherMaterial;
-                break;
-        }
+        Material material = GetMaterial(power);
 
         if (material != null)
             BallRenderer.material = material;
+    }
+
+    private Material GetMaterial(PowerUpType power)
+    {
+        switch (power)
+        {
+            case PowerUpType.Fire: return FireMaterial;
+            case PowerUpType.Air: return AirMaterial;
+            case PowerUpType.Earth: return EarthMaterial;
+            case PowerUpType.Water: return WaterMaterial;
+            case PowerUpType.Aether: return AetherMaterial;
+            default: return NoPowerMaterial;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // MORPH
+    // ------------------------------------------------------------------
+    // Which element is the ball using RIGHT NOW? None = just the base skin.
+    private PowerUpType CurrentMoveElement()
+    {
+        // the long moves are read from the character, so the skin lasts exactly as long as the move
+        if (Player.CurrentState == CharacterState.Dashing) return PowerUpType.Fire;
+        if (Player.CurrentState == CharacterState.GroundPound) return PowerUpType.Earth;
+        if (Player.IsGliding) return PowerUpType.Air;
+
+        // the short moves last a fixed time
+        if (_pulseTimer > 0f)
+        {
+            _pulseTimer -= Time.deltaTime;
+            return _pulseElement;
+        }
+
+        return PowerUpType.None;
+    }
+
+    private void UpdateMorph()
+    {
+        if (_shellTransform == null) return;
+
+        PowerUpType wanted = CurrentMoveElement();
+
+        // the ball already wears this element as its base skin: nothing to show
+        if (wanted == Player.CurrentPower)
+            wanted = PowerUpType.None;
+
+        if (wanted != PowerUpType.None)
+        {
+            // a new element takes the shell (if another one was showing, it is swapped on the spot)
+            if (wanted != _shellElement)
+            {
+                Material material = GetMaterial(wanted);
+                if (material == null) return;
+
+                bool wasHidden = _shellAmount <= 0f;
+
+                MorphShell.sharedMaterial = material;
+                _shellElement = wanted;
+
+                // the flash cue only when the shell appears (not when it just changes color)
+                if (wasHidden)
+                    StartPop();
+            }
+
+            _shellAmount = Mathf.MoveTowards(_shellAmount, 1f, Time.deltaTime / Mathf.Max(MorphInTime, 0.01f));
+        }
+        else
+        {
+            _shellAmount = Mathf.MoveTowards(_shellAmount, 0f, Time.deltaTime / Mathf.Max(MorphOutTime, 0.01f));
+        }
+
+        if (_shellAmount <= 0f)
+        {
+            if (MorphShell.enabled)
+                MorphShell.enabled = false;
+            _shellElement = PowerUpType.None;
+            return;
+        }
+
+        if (!MorphShell.enabled)
+            MorphShell.enabled = true;
+
+        // it grows from the core (smooth start and end)
+        float eased = _shellAmount * _shellAmount * (3f - 2f * _shellAmount);
+        _shellTransform.localScale = Vector3.one * (ShellScale * eased);
+    }
+
+    private void HideShellNow()
+    {
+        _shellAmount = 0f;
+        _shellElement = PowerUpType.None;
+        _pulseTimer = 0f;
+
+        if (MorphShell != null && MorphShell.enabled)
+            MorphShell.enabled = false;
     }
 }

@@ -29,7 +29,8 @@ public class NeonShapeMesh : MonoBehaviour
     {
         Prism,
         Pyramid,
-        Wedge       // a slope: a triangle seen from the side, pushed along Z (see "Wedge Size")
+        Wedge,      // a slope: a triangle seen from the side, pushed along Z (see "Wedge Size")
+        Ring        // a flat hollow ring (see "Inner Radius"); Sides = how smooth it is (32 is good). Stand it up with Rotation X = 90
     }
 
     public ShapeType Shape = ShapeType.Prism;
@@ -42,6 +43,9 @@ public class NeonShapeMesh : MonoBehaviour
 
     // Height of the shape
     public float Height = 0.4f;
+
+    // RING ONLY: the radius of the hole (must be smaller than Radius). The ring is Radius minus Inner Radius wide.
+    public float InnerRadius = 0.42f;
 
     // How many shapes in a row (along X)
     [Range(1, 30)] public int Count = 1;
@@ -97,6 +101,12 @@ public class NeonShapeMesh : MonoBehaviour
         if (Shape == ShapeType.Wedge)
         {
             BuildWedge(meshFilter);
+            return;
+        }
+
+        if (Shape == ShapeType.Ring)
+        {
+            BuildRing(meshFilter);
             return;
         }
 
@@ -200,6 +210,75 @@ public class NeonShapeMesh : MonoBehaviour
             DestroyMesh(old);
 
         FitColliders(mesh, w * 2f, d * 2f);
+    }
+
+    // A flat hollow ring: a top and a bottom face, an outer wall and an inner wall.
+    // Only the OUTLINES are drawn: the two circles on each face (no line between the small flat pieces of the ring).
+    private void BuildRing(MeshFilter meshFilter)
+    {
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector3> normals = new List<Vector3>();
+        List<Vector3> edgeData = new List<Vector3>();
+        List<int> triangles = new List<int>();
+
+        int segments = Mathf.Max(Sides, 6);
+        float outer = Mathf.Max(Radius, 0.02f);
+        float inner = Mathf.Clamp(InnerRadius, 0.01f, outer - 0.01f);
+        float h = Mathf.Max(Height, 0.005f);
+        Vector3 up = new Vector3(0f, h, 0f);
+
+        for (int i = 0; i < segments; i++)
+        {
+            int j = (i + 1) % segments;
+
+            float angleI = (RotationOffset + 360f * i / segments) * Mathf.Deg2Rad;
+            float angleJ = (RotationOffset + 360f * j / segments) * Mathf.Deg2Rad;
+            Vector3 dirI = new Vector3(Mathf.Cos(angleI), 0f, Mathf.Sin(angleI));
+            Vector3 dirJ = new Vector3(Mathf.Cos(angleJ), 0f, Mathf.Sin(angleJ));
+            Vector3 middle = (dirI + dirJ).normalized;
+
+            Vector3 outerI = dirI * outer;
+            Vector3 outerJ = dirJ * outer;
+            Vector3 innerI = dirI * inner;
+            Vector3 innerJ = dirJ * inner;
+
+            // top face (outer circle and inner circle drawn), bottom face, outer wall, inner wall
+            AddEdgeQuad(outerI + up, outerJ + up, innerJ + up, innerI + up, Vector3.up, vertices, normals, edgeData, triangles);
+            AddEdgeQuad(outerI, outerJ, innerJ, innerI, Vector3.down, vertices, normals, edgeData, triangles);
+            AddEdgeQuad(outerI, outerJ, outerJ + up, outerI + up, middle, vertices, normals, edgeData, triangles);
+            AddEdgeQuad(innerI, innerJ, innerJ + up, innerI + up, -middle, vertices, normals, edgeData, triangles);
+        }
+
+        Mesh mesh = new Mesh();
+        mesh.name = MeshName;
+        mesh.hideFlags = HideFlags.HideAndDontSave;
+        mesh.SetVertices(vertices);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(1, edgeData);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateBounds();
+
+        Mesh old = meshFilter.sharedMesh;
+        meshFilter.sharedMesh = mesh;
+
+        if (old != null && old.name == MeshName)
+            DestroyMesh(old);
+
+        // a ring is decoration: no collider is fitted
+    }
+
+    // A face made of 2 triangles where ONLY the first edge (a-b) and the opposite edge (d-c) are drawn.
+    // The two short sides and the diagonal are not drawn (so a smooth circle shows no lines between its pieces).
+    private static void AddEdgeQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 outward,
+                                    List<Vector3> vertices, List<Vector3> normals, List<Vector3> edgeData, List<int> triangles)
+    {
+        AddTriangle(a, b, c,
+                    new Vector3(1, 1, 0), new Vector3(1, 1, 0), new Vector3(1, 1, 1),
+                    outward, vertices, normals, edgeData, triangles);
+
+        AddTriangle(a, c, d,
+                    new Vector3(1, 1, 1), new Vector3(0, 1, 1), new Vector3(0, 1, 1),
+                    outward, vertices, normals, edgeData, triangles);
     }
 
     // A square face made of 2 triangles, the diagonal cut is not drawn.

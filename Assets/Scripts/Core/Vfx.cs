@@ -81,6 +81,14 @@ public class Vfx : MonoBehaviour
             Instance.SetLoopInternal(type, on);
     }
 
+    // Same, but the movement effect gets the color of the move's own element
+    // (a ball with the gold base skin still dashes with a fire trail)
+    public static void SetLoop(VfxType type, bool on, PowerUpType element)
+    {
+        if (Instance != null)
+            Instance.SetLoopInternal(type, on, element, true);
+    }
+
     // The power changed: the right ambient effect turns on, and the movement loops turn off
     public static void SetPower(PowerUpType power)
     {
@@ -209,6 +217,11 @@ public class Vfx : MonoBehaviour
 
     private void SetLoopInternal(VfxType type, bool on)
     {
+        SetLoopInternal(type, on, _currentPower, false);
+    }
+
+    private void SetLoopInternal(VfxType type, bool on, PowerUpType element, bool useElement)
+    {
         int index = (int)type;
         if (_loopOn[index] == on) return;       // nothing changed: nothing to do
         _loopOn[index] = on;
@@ -220,7 +233,7 @@ public class Vfx : MonoBehaviour
         {
             // the movement loops take the color of the current element, the ambient ones keep their own
             if (index <= LastTintedLoop)
-                SetColor(index, GetColor(_currentPower));
+                SetColor(index, GetColor(useElement ? element : _currentPower));
 
             if (Follow != null)
                 root.transform.position = Follow.position;

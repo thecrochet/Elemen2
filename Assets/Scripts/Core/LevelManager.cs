@@ -218,8 +218,11 @@ public class LevelManager : MonoBehaviour, IResettable
         _clockRunning = false;   // LevelTime stays frozen at its last value
 
         // best time: keep the faster one
+        // (Free mode, set by the LevelLoadout: nothing is ranked, so no best time and no stars are saved)
+        bool ranked = LevelLoadout.Instance == null || !LevelLoadout.Instance.IsFreeMode;
+
         float previousBest = PlayerPrefs.GetFloat(BestTimeKey, -1f);
-        IsNewBest = previousBest < 0f || LevelTime < previousBest;
+        IsNewBest = ranked && (previousBest < 0f || LevelTime < previousBest);
 
         if (IsNewBest)
         {
@@ -233,7 +236,7 @@ public class LevelManager : MonoBehaviour, IResettable
         }
 
         // stars: only the best count is kept
-        if (EnableStars)
+        if (EnableStars && ranked)
         {
             Stars = GetStarsForTime(LevelTime);
             string starsKey = StarsKey(SceneManager.GetActiveScene().name);

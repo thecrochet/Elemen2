@@ -40,7 +40,11 @@ public enum SfxType
     CannonShoot,
     HazardHit,
     CrackHit,
-    StarLost
+    StarLost,
+
+    // added with the recharge orbs (always add new events at the END of this list)
+    RechargeUse,
+    RechargeReturn
 }
 
 // The settings of ONE sound event (it shows as one line in the Inspector list)
