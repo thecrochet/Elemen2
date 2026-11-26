@@ -1881,6 +1881,23 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
             SetPower(CurrentPower);
     }
 
+    // Recomputes what the ball can do RIGHT NOW from the powers it owns (used by the Inspector buttons while you play,
+    // so ticking a power in the Inspector works at once, without a restart or a new gate).
+    public void RefreshPowers()
+    {
+        if (_awakeDone)
+            SetPower(CurrentPower);
+    }
+
+#if UNITY_EDITOR
+    // Ticking "Use Saved Powers" or a cheat power in the Inspector during Play mode counts at once
+    private void OnValidate()
+    {
+        if (Application.isPlaying)
+            RefreshPowers();
+    }
+#endif
+
     // true if this power is earned (boss, or the cheat ticks, or unlock-all) AND the level allows it.
     // Free mode ignores the level's list: everything you earned works.
     public bool OwnsPower(PowerUpType power)
@@ -1924,14 +1941,13 @@ public class CC_ELEMENTO : MonoBehaviour, ICharacterController
         hasDoubleJump = HasAbilityOf(PowerUpType.Air);
         hasGlide = hasDoubleJump;
         if (!hasDoubleJump)
-            _extraAirJumps = 0;
+            _extraAirJumps = 0;   // losing the power cancels the extra air jumps
 
         hasGroundPound = HasAbilityOf(PowerUpType.Earth);
-
         hasWallJump = HasAbilityOf(PowerUpType.Water);
         hasGravityFlip = hasWallJump;
         if (!hasGravityFlip)
-            _extraFlips = 0;
+            _extraFlips = 0;      // losing the power cancels the extra flips
 
         // Aether and None have no ability yet. When Aether gets one, add a line here.
 

@@ -130,6 +130,44 @@ public static class ElementoOrbPadBuilders
     // ------------------------------------------------------------------
     // THE ORB
     // ------------------------------------------------------------------
+    // How each element's orb looks and moves (one place to tune them)
+    private struct OrbLook
+    {
+        public Color body, rim;          // the sphere (HDR)
+        public float swirl, pulseSpeed, pulseAmount;
+        public float ringTilt;           // how far the ring leans toward the camera (degrees)
+        public float ringSpin;           // degrees per second
+        public float ringRadius;
+    }
+
+    private static OrbLook LookOf(PowerUpType element)
+    {
+        OrbLook look = new OrbLook();
+
+        switch (element)
+        {
+            case PowerUpType.Fire:   // a hot, flickering ball, a fast tight ring
+                look.body = new Color(2.2f, 0.55f, 0.08f); look.rim = new Color(3.5f, 1.6f, 0.3f);
+                look.swirl = 0.45f; look.pulseSpeed = 7f; look.pulseAmount = 0.18f;
+                look.ringTilt = 65f; look.ringSpin = 140f; look.ringRadius = 0.62f;
+                break;
+
+            case PowerUpType.Air:    // a light, calm ball, a wide ring that turns quickly
+                look.body = new Color(0.9f, 1.8f, 1.5f); look.rim = new Color(2.2f, 3.0f, 2.8f);
+                look.swirl = 0.2f; look.pulseSpeed = 2.5f; look.pulseAmount = 0.08f;
+                look.ringTilt = 78f; look.ringSpin = 170f; look.ringRadius = 0.7f;
+                break;
+
+            default:                 // Water: a deep, slow ball, a slow heavy ring
+                look.body = new Color(0.15f, 0.8f, 2.0f); look.rim = new Color(0.8f, 2.4f, 3.4f);
+                look.swirl = 0.3f; look.pulseSpeed = 1.8f; look.pulseAmount = 0.1f;
+                look.ringTilt = 50f; look.ringSpin = -60f; look.ringRadius = 0.64f;
+                break;
+        }
+
+        return look;
+    }
+
     private static void BuildOrb(PowerUpType element, string gives, MenuCommand command)
     {
         string e = element.ToString();
@@ -137,22 +175,24 @@ public static class ElementoOrbPadBuilders
         bool ok = EditorUtility.DisplayDialog("Recharge Orb (" + e + ")",
             "This will create, in the scene:\n\n" +
             "- Orb_" + e + ": gives " + gives + " (only when the ball has " + e + "). A trigger Sphere Collider (radius 0.8) and the RechargeOrb script.\n" +
-            "- Visual > Core (a glowing disc) and Ring (a hollow ring): both made with NeonShapeMesh.\n" +
-            "- FX_RechargeUse (a burst when taken) and FX_RechargeReturn (a small ring flash when it comes back): ParticleSystems made by this tool, linked to the script.\n\n" +
+            "- Visual > Core: a real glowing SPHERE (it does not turn) with a swirl inside, a bright rim and a soft pulse.\n" +
+            "- Visual > RingPivot > Ring: a hollow ring leaning toward the camera. ONLY the pivot turns, so the ring sweeps around the sphere.\n" +
+            "- FX_Orbit: a few looping " + e + " particles that spiral around the sphere (they stop when the orb is taken and restart when it returns). Untick 'Orbit Particles' on the script to switch them off.\n" +
+            "- FX_RechargeUse (a burst when taken) and FX_RechargeReturn (a small ring flash when it comes back).\n\n" +
             "And, only if they don't exist yet, these materials in your materials folder:\n" +
-            "- M_Orb_" + e + "_Core and M_Orb_" + e + "_Ring (NeonShape)\n\n" +
+            "- M_OrbCore_" + e + " (new shader Elemento/OrbCore, make sure OrbCore.shader is in your project)\n" +
+            "- M_Orb_" + e + "_Ring (NeonShape)\n\n" +
             "Nothing existing is changed. Continue?",
             "Create", "Cancel");
 
         if (!ok) return;
 
+        OrbLook look = LookOf(element);
         Color edge = EdgeColor(element);
-        Color fill = FillColor(element);
 
-        // the core: a tinted glass disc with a bright rim (NOT white: the white-hot amount is low)
-        Material coreMaterial = GetOrMakeMaterial("M_Orb_" + e + "_Core", edge * 0.9f, edge * 0.28f, 0.8f, 0.1f);
+        Material coreMaterial = GetOrMakeCoreMaterial("M_OrbCore_" + e, look);
         // the ring: a thin glowing outline, almost clear inside
-        Material ringMaterial = GetOrMakeMaterial("M_Orb_" + e + "_Ring", edge, fill, 0.05f, 0.1f);
+        Material ringMaterial = GetOrMakeMaterial("M_Orb_" + e + "_Ring", edge, FillColor(element), 0.05f, 0.1f);
 
         if (coreMaterial == null || ringMaterial == null) return;
 
@@ -167,33 +207,192 @@ public static class ElementoOrbPadBuilders
         RechargeOrb orb = root.AddComponent<RechargeOrb>();
         orb.Power = element;
         orb.ReturnDelay = 2f;
-        orb.SpinSpeed = 0f;   // the discs face the camera; set about 90 for a coin-flip spin
+        orb.SpinSpeed = 0f;              // the sphere stays still
+        orb.RingSpinSpeed = look.ringSpin;
+        orb.RingSpinAxis = Vector3.up;
 
         GameObject visual = new GameObject("Visual");
         visual.transform.SetParent(root.transform, false);
         orb.Visual = visual.transform;
 
-        // the core: a small disc, stood up to face the camera (Rotation X = 90)
-        GameObject core = new GameObject("Core");
+        // the core: a real sphere (a normal Unity sphere without its collider)
+        GameObject core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        core.name = "Core";
+        Object.DestroyImmediate(core.GetComponent<Collider>());
         core.transform.SetParent(visual.transform, false);
-        core.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        AddShape(core, coreMaterial, NeonShapeMesh.ShapeType.Prism, 24, 0.26f, 0.06f, 0f);
+        core.transform.localScale = Vector3.one * 0.55f;
 
-        // the hollow ring around it
+        MeshRenderer coreRenderer = core.GetComponent<MeshRenderer>();
+        coreRenderer.sharedMaterial = coreMaterial;
+        coreRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        coreRenderer.receiveShadows = false;
+
+        // the ring: a pivot at the center turns around its up axis, and the ring leans on it
+        GameObject pivot = new GameObject("RingPivot");
+        pivot.transform.SetParent(visual.transform, false);
+        orb.Ring = pivot.transform;
+
         GameObject ring = new GameObject("Ring");
-        ring.transform.SetParent(visual.transform, false);
-        ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        AddShape(ring, ringMaterial, NeonShapeMesh.ShapeType.Ring, 48, 0.55f, 0.05f, 0.45f);
+        ring.transform.SetParent(pivot.transform, false);
+        ring.transform.localRotation = Quaternion.Euler(look.ringTilt, 0f, 0f);
+        AddShape(ring, ringMaterial, NeonShapeMesh.ShapeType.Ring, 64, look.ringRadius, 0.04f, look.ringRadius - 0.07f);
 
         // the effects
         Material circle = ElementoMaterials.Find("P_Circle", "Elemento/NeonParticle");
-        Material flash = ElementoMaterials.Find("P_Ring", "Elemento/NeonParticle");
+        Material streak = ElementoMaterials.Find("P_Streak", "Elemento/NeonParticle");
+        Material bubble = ElementoMaterials.Find("P_Ring", "Elemento/NeonParticle");
         Color particleColor = ParticleColor(element);
 
+        ParticleSystem orbit = MakeOrbit(root.transform, element, circle, streak, bubble);
+        orb.OrbitEffects = new ParticleSystem[] { orbit };
+
         orb.UseEffect = MakeBurst(root.transform, "FX_RechargeUse", circle, particleColor, 20, 5f, 0.15f, 0.4f);
-        orb.ReturnEffect = MakeRingFlash(root.transform, "FX_RechargeReturn", flash, particleColor, 0.3f, 1.6f, Vector3.zero);
+        orb.ReturnEffect = MakeRingFlash(root.transform, "FX_RechargeReturn", bubble, particleColor, 0.3f, 1.6f, Vector3.zero);
 
         Selection.activeGameObject = root;
+    }
+
+    // The particles that circle the sphere. Each element moves its own way (all of them LOCAL, so they follow the orb):
+    //   Fire  = embers, born wide, spiraling in and rising a little (the sphere hides where they end)
+    //   Air   = thin wisps racing around in a flat circle, like a wind ring
+    //   Water = slow bubbles drifting around on two tilted orbits
+    private static ParticleSystem MakeOrbit(Transform parent, PowerUpType element, Material circle, Material streak, Material bubble)
+    {
+        Color color = ParticleColor(element);
+        ParticleSystem ps;
+
+        switch (element)
+        {
+            case PowerUpType.Fire:
+                ps = NewSystem(parent, "FX_Orbit", circle, Vector3.zero);
+                SetOrbitMain(ps, 1.1f, 1.5f, 0.07f, 0.15f, 14, 9f, color, new Color(1f, 0.85f, 0.25f, 1f));
+                SetOrbitShape(ps, ParticleSystemShapeType.Sphere, 0.85f);
+                SetOrbitVelocity(ps, 0f, 3.2f, 0f, 0.5f, -0.35f);     // orbit around Y, rise a little, pull inward
+                SetOrbitSize(ps, 1f, 0.15f);
+                break;
+
+            case PowerUpType.Air:
+                ps = NewSystem(parent, "FX_Orbit", streak, Vector3.zero);
+                SetOrbitMain(ps, 0.7f, 1.0f, 0.25f, 0.4f, 10, 7f, color, color);
+                SetOrbitShape(ps, ParticleSystemShapeType.Circle, 0.72f);
+                SetOrbitVelocity(ps, 0f, 0f, 4.5f, 0f, 0f);            // orbit around Z: a flat ring facing the camera
+                SetOrbitSize(ps, 1f, 0.6f);
+
+                ParticleSystemRenderer wispRenderer = ps.GetComponent<ParticleSystemRenderer>();
+                wispRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+                wispRenderer.lengthScale = 1.5f;
+                wispRenderer.velocityScale = 0.05f;
+                break;
+
+            default:   // Water
+                ps = NewSystem(parent, "FX_Orbit", bubble, Vector3.zero);
+                SetOrbitMain(ps, 1.3f, 1.9f, 0.1f, 0.2f, 12, 6f, color, color);
+                SetOrbitShape(ps, ParticleSystemShapeType.Sphere, 0.8f);
+                SetOrbitVelocity(ps, 0f, 1.6f, 0.9f, 0.25f, -0.2f);    // two slow orbits, a gentle rise
+                SetOrbitSize(ps, 0.6f, 1f);                            // the bubbles grow a little
+                break;
+        }
+
+        return ps;
+    }
+
+    // Main module of a looping orbit system. The two colors give a random mix (Fire).
+    private static void SetOrbitMain(ParticleSystem ps, float lifeMin, float lifeMax, float sizeMin, float sizeMax,
+                                     int maxParticles, float rate, Color colorA, Color colorB)
+    {
+        ParticleSystem.MainModule main = ps.main;
+        main.loop = true;
+        main.duration = 1f;
+        main.prewarm = true;                                   // the orbit is already full when the orb appears
+        main.simulationSpace = ParticleSystemSimulationSpace.Local;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(lifeMin, lifeMax);
+        main.startSpeed = 0f;
+        main.startSize = new ParticleSystem.MinMaxCurve(sizeMin, sizeMax);
+        main.startColor = new ParticleSystem.MinMaxGradient(colorA, colorB);
+        main.maxParticles = maxParticles;
+
+        ParticleSystem.EmissionModule emission = ps.emission;
+        emission.rateOverTime = rate;
+    }
+
+    private static void SetOrbitShape(ParticleSystem ps, ParticleSystemShapeType type, float radius)
+    {
+        ParticleSystem.ShapeModule shape = ps.shape;
+        shape.enabled = true;
+        shape.shapeType = type;
+        shape.radius = radius;
+        shape.radiusThickness = 0f;     // born on the rim / the surface, not inside
+    }
+
+    // orbital = how fast each particle circles the center on each axis (radians per second); linearY = a steady rise;
+    // radial = pulled out (+) or in (-). All of them in LOCAL space, so the particles circle the orb wherever it is.
+    private static void SetOrbitVelocity(ParticleSystem ps, float orbitalX, float orbitalY, float orbitalZ, float linearY, float radial)
+    {
+        ParticleSystem.VelocityOverLifetimeModule velocity = ps.velocityOverLifetime;
+        velocity.enabled = true;
+        velocity.space = ParticleSystemSimulationSpace.Local;
+
+        // every curve must be the same kind (constants), or Unity refuses the module
+        velocity.x = new ParticleSystem.MinMaxCurve(0f);
+        velocity.y = new ParticleSystem.MinMaxCurve(linearY);
+        velocity.z = new ParticleSystem.MinMaxCurve(0f);
+        velocity.orbitalX = new ParticleSystem.MinMaxCurve(orbitalX);
+        velocity.orbitalY = new ParticleSystem.MinMaxCurve(orbitalY);
+        velocity.orbitalZ = new ParticleSystem.MinMaxCurve(orbitalZ);
+        velocity.radial = new ParticleSystem.MinMaxCurve(radial);
+    }
+
+    // the size changes from "start" to "end" over the life (1 = the Start Size)
+    private static void SetOrbitSize(ParticleSystem ps, float start, float end)
+    {
+        ParticleSystem.SizeOverLifetimeModule size = ps.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, start), new Keyframe(1f, end)));
+
+        // fades in and out, so a particle never pops in or out
+        ParticleSystem.ColorOverLifetimeModule fade = ps.colorOverLifetime;
+        fade.enabled = true;
+
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) });
+        fade.color = new ParticleSystem.MinMaxGradient(gradient);
+    }
+
+    // The sphere material (shader Elemento/OrbCore). Only an EXACT name that already uses this shader counts as "already there".
+    private static Material GetOrMakeCoreMaterial(string name, OrbLook look)
+    {
+        Material existing = FindExact(name);
+
+        if (existing != null && existing.shader != null && existing.shader.name == "Elemento/OrbCore")
+            return existing;
+
+        Shader shader = Shader.Find("Elemento/OrbCore");
+
+        if (shader == null)
+        {
+            EditorUtility.DisplayDialog("Elemento", "The shader Elemento/OrbCore was not found. Put OrbCore.shader in your shaders folder (Assets/ART/Shaders/Level), wait for Unity to import it, and try again.", "OK");
+            return null;
+        }
+
+        string folder = "Assets";
+        Material sibling = FindExact("M_Shape_Diamond");
+
+        if (sibling != null)
+            folder = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(sibling)).Replace('\\', '/');
+
+        Material material = new Material(shader);
+        material.name = name;
+        material.SetColor("_CoreColor", look.body);
+        material.SetColor("_RimColor", look.rim);
+        material.SetFloat("_SwirlAmount", look.swirl);
+        material.SetFloat("_PulseSpeed", look.pulseSpeed);
+        material.SetFloat("_PulseAmount", look.pulseAmount);
+
+        AssetDatabase.CreateAsset(material, folder + "/" + name + ".mat");
+        AssetDatabase.SaveAssets();
+        return material;
     }
 
     // a mesh child: NeonShapeMesh + MeshRenderer, no collider

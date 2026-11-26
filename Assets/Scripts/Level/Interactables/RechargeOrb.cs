@@ -11,10 +11,14 @@ using UnityEngine;
 // The orb only works if the ball has that element right now. If it doesn't, the ball just passes through
 // and the orb stays (it never gets wasted). After a pickup it disappears, then comes back by itself.
 //
+// LOOK: a glowing sphere in the middle (it does not turn), a ring around it that does turn (see "Ring"),
+// and a few particles of the element that spiral around it (see "Orbit Effects").
+//
 // SETUP (all on ONE object):
 //   - a Sphere Collider with "Is Trigger" checked, Radius 0.8
 //   - this script, with "Power" set to Fire, Air or Water
-//   - a CHILD object with the mesh (no collider on it), assigned to "Visual"
+//   - a CHILD object with the meshes (no collider on them), assigned to "Visual"
+//   - optional: the ring object in "Ring", and the looping particles in "Orbit Effects"
 //   - layer Default (like the other level objects)
 //   Easiest: GameObject > Elemento > Level > Recharge Orb (Fire / Air / Water) builds all of this and asks first.
 //
@@ -27,11 +31,27 @@ public class RechargeOrb : MonoBehaviour, IResettable
     // Seconds before the orb comes back. 0 or less = it stays gone until the player respawns.
     public float ReturnDelay = 2f;
 
-    // The mesh (a child). It is hidden after a pickup and spins slowly while waiting. Optional.
+    // The mesh (a child): the sphere and the ring together. It is hidden after a pickup. Optional.
     public Transform Visual;
 
-    // Spin of the mesh in degrees per second (0 = no spin)
-    public float SpinSpeed = 60f;
+    // Spin of the WHOLE mesh in degrees per second (0 = no spin; use Ring Spin Speed to turn only the ring)
+    public float SpinSpeed = 0f;
+
+    // The ring that turns around the sphere (an empty object holding the ring mesh). Only this one turns. Optional.
+    public Transform Ring;
+
+    // How fast the ring turns, in degrees per second (the sign is the direction)
+    public float RingSpinSpeed = 90f;
+
+    // The axis the ring turns around, in the ring object's own space (0,1,0 = around its up axis)
+    public Vector3 RingSpinAxis = Vector3.up;
+
+    // Untick to switch off the particles that circle the orb (a quick way to save frame time)
+    public bool OrbitParticles = true;
+
+    // Looping ParticleSystems (Looping ON, Play On Awake OFF) that circle the sphere. They stop when the orb is taken
+    // and start again when it comes back. A few particles only: the orb is the only level object that keeps emitting.
+    public ParticleSystem[] OrbitEffects;
 
     // Optional: a ParticleSystem (Play On Awake OFF, Looping OFF) played when the ball takes the orb.
     // It can be a child of the orb: the particles are not hidden with the mesh.
@@ -63,6 +83,8 @@ public class RechargeOrb : MonoBehaviour, IResettable
         if (Power != PowerUpType.Fire && Power != PowerUpType.Air && Power != PowerUpType.Water)
             Debug.LogWarning("RechargeOrb '" + name + "': Power must be Fire, Air or Water.", this);
 
+        SetOrbit(true);
+
         // Register also saves the starting state right away
         if (RespawnManager.Instance != null)
             RespawnManager.Instance.Register(this);
@@ -85,6 +107,7 @@ public class RechargeOrb : MonoBehaviour, IResettable
         _used = true;
         _timer = ReturnDelay;
         SetOrbActive(false);
+        SetOrbit(false);
 
         Sfx.PlayAt(SfxType.RechargeUse, transform.position);
 
@@ -96,9 +119,13 @@ public class RechargeOrb : MonoBehaviour, IResettable
     {
         if (!_used)
         {
-            // a slow spin, only on the mesh
+            // the whole mesh (off by default) and, on its own, the ring
             if (Visual != null && SpinSpeed != 0f)
                 Visual.Rotate(0f, SpinSpeed * Time.deltaTime, 0f, Space.Self);
+
+            if (Ring != null && RingSpinSpeed != 0f)
+                Ring.Rotate(RingSpinAxis, RingSpinSpeed * Time.deltaTime, Space.Self);
+
             return;
         }
 
@@ -122,6 +149,29 @@ public class RechargeOrb : MonoBehaviour, IResettable
     {
         _used = false;
         SetOrbActive(true);
+        SetOrbit(true);
+    }
+
+    // The circling particles: on while the orb is there, off (and cleared) while it is gone
+    private void SetOrbit(bool on)
+    {
+        if (OrbitEffects == null) return;
+
+        for (int i = 0; i < OrbitEffects.Length; i++)
+        {
+            ParticleSystem ps = OrbitEffects[i];
+            if (ps == null) continue;
+
+            if (on && OrbitParticles)
+            {
+                if (!ps.isPlaying)
+                    ps.Play(true);
+            }
+            else
+            {
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+        }
     }
 
     private void SetOrbActive(bool active)

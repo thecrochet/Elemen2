@@ -107,6 +107,7 @@ MonoBehaviour:
   Sides: 4
   Radius: 0.495
   Height: 0.55
+  InnerRadius: 0.42
   Count: 1
   Spacing: 0
   RotationOffset: 45
@@ -292,6 +293,7 @@ MonoBehaviour:
   Sides: 4
   Radius: 0.495
   Height: 0.55
+  InnerRadius: 0.42
   Count: 1
   Spacing: 0
   RotationOffset: 45

@@ -64,6 +64,36 @@ public static class PowerSave
         PlayerPrefs.Save();
     }
 
+    // Takes one power away again (for testing: tick and untick a power in the Inspector)
+    public static void Lock(PowerUpType power)
+    {
+        int bit = PowerMaskUtil.Bit(power);
+        if (bit == 0 || (Mask & bit) == 0) return;
+
+        _mask = Mask & ~bit;
+        PlayerPrefs.SetInt(Key, _mask);
+        PlayerPrefs.Save();
+    }
+
+    // Owned or not, in one call
+    public static void Set(PowerUpType power, bool owned)
+    {
+        if (owned)
+            Unlock(power);
+        else
+            Lock(power);
+    }
+
+    // All four elements at once (the same as having beaten every boss)
+    public static void UnlockAll()
+    {
+        _mask = PowerMaskUtil.Bit(PowerUpType.Fire) | PowerMaskUtil.Bit(PowerUpType.Air)
+              | PowerMaskUtil.Bit(PowerUpType.Earth) | PowerMaskUtil.Bit(PowerUpType.Water);
+        _loaded = true;
+        PlayerPrefs.SetInt(Key, _mask);
+        PlayerPrefs.Save();
+    }
+
     public static void Clear()
     {
         _mask = 0;

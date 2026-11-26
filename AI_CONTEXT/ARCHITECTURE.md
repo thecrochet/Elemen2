@@ -1,47 +1,36 @@
-# Architecture (snapshot Nov 2026, built from the audit; verify before relying)
+# Architecture (Verified Project Reference)
 
-Scripts live under `Assets/Scripts/`. Legacy folders and KCC are out of scope.
+Scripts live under `Assets/Scripts/`. Third-party KCC (`Assets/ThirdParty/KCC` / `KinematicCharacterController`) and `Legacy` folders are out of scope.
 
-## Core managers (children of the LevelCore prefab, one per scene; standalone GameManager, LevelManager and RespawnManager prefabs also exist in Prefabs/Managers)
-- `Core/LevelManager` (IResettable): level clock, best time, level finish, loads next scene (by name or build index).
-- `Core/RespawnManager`: respawn after 0.25 s, kill floor Y -25 / kill top Y 75, commits/resets every IResettable. Also defines `IResettable`.
-- `Core/Vfx`: plays `FX_<VfxType>` children by enum (one-shots, loops, ambients, tinted, collect burst). Keep one per scene.
-- `Core/Sfx`: 34 SfxType events (verified) with fallback to PowerUp sound.
-- `Debug/DebugOverlay`: editor debug display.
-- `PowerUpType` (enum, order fixed). `PowerUpPickup.cs` is fully commented out (dead file).
+## Template Scene & 7-Container Standard
+- **Template Scene:** `Assets/Scenes/Templates/LEVEL_TEMPLATE.unity` (always duplicate this exact file for new levels; never search for other template scenes).
+- **7 Root Containers (Every playable level organizes root GameObjects cleanly at `Z = 0`):**
+  1. `LevelCore` (existing from template: `Player` with `CC_ELEMENTO` / `BallVisuals` / `KinematicCharacterMotor`, `CameraRig`, `LevelManager`, `RespawnManager`, `Vfx`, `Sfx`, `LevelUI`, `DebugOverlay`, kill pits)
+  2. `Environment` (`Ground_20x1`, `Block_1x1`, `Ledge_8x1`, `Wall_1x12`, `Ceiling_20x1`, `Slope_45`, `Slope_45_Large`, `MovingPlatform`, `CrumblingBlock`, `IceSurface`, `OneWayPlatform`, `LevelFrame_40x14`)
+  3. `Interactables` (`ElementGate_Fire`, `ElementGate_Earth`, `ElementGate_Water`, `ElementGate_Air`, `ElementGate_Aether`, `ElementGate_Base`, `DashWall`, `DashWall_DashOnly`, `DashWall_Tough`, `DashWall_ChainRow`, `CrackedBlock`, `BouncePad`, `BouncePad_Mini`, `BouncePad_Mega`, `DashZone`, `DashBoost_Fast`, `DashLane_UP`, `DashHold`, `RechargeOrb`, `EarthHoverPad`)
+  4. `Hazards` (`Spike`, `Saw_Slow`, `Saw_Fast`, `SpinArm`, `StompBlock`, `FireJet`, `Cannon`, `Cannon_Fast`, `LavaLeaper`)
+  5. `Collectibles` (`Diamond`, `Atom` — each with unique scene ID)
+  6. `Checkpoints` (`Checkpoint` / `CheckPoint` — max 1 per level per `DESIGN.md`)
+  7. `Flow` (`StartPortal`, `End_Portal`, `CameraZone`, `CameraZone_Wide`, `CameraZone_Climb`, `CameraZone_Tight`, `TutorialSIgn_*` — note capital `I` in prefab filenames)
+- **Other Prefab Folders (`Assets/Prefabs/`):** `Camera/`, `Player/`, `Managers/`, `UI/`, `Props/`, `VFX/`, `Worlds/World1_Fire/`. Each category folder under `Assets/Prefabs/Level/` contains its own `Variants/` subfolder.
+- **Prefab Warning:** Two `DashWall` prefabs exist—always instantiate breakable walls from `Assets/Prefabs/Level/Interactables/`, never the non-breakable copy in `Level/Platforms/`.
+- **Clean Runtime Presentation:** Ensure `DebugOverlay.StartVisible = false` and `PlayerLab.ShowPanel = false` / `MixPowers = false` on `LevelCore`.
+- **Automated Validator:** `Assets/Scripts/Debug/ElementoLevelValidator.cs` runs 11 automated scene checks (`Elemento > Validate Current Level`).
 
-## Player
-- `Player/CC_ELEMENTO`: the KCC character controller. States: Default, Dashing, GroundPound, Dead, Finished. Moves, jump, double jump, dash, ground pound, wall jump, glide, gravity flip.
-- `Player/BallVisuals`: ball material and effects per power.
-- Camera: `Camera/CameraZoneBlender` blends Cinemachine settings between CameraZones.
+## Core Systems & Managers
+- `Core/LevelManager` (`IResettable`): level clock, best time (`BestTime_<sceneName>`), level finish, scene loading (`NextSceneName` or next build index).
+- `Core/RespawnManager`: 0.25 s respawn delay, `KillY` / `KillTopY`, commits/resets every `IResettable` at start and checkpoints.
+- `Core/Vfx`: singleton playing `FX_<VfxType>` children by enum (22 ball effects + tinted one-shots). Keep one active instance per scene.
+- `Core/Sfx`: 34 `SfxType` events with fallback logic.
+- `Core/PowerUpType`: ordered enum `Fire = 0, Air = 1, Earth = 2, Water = 3, None = 4, Aether = 5` (append only).
+- `Core/LevelLoadout` & `PowerMask`: scene loadout mask (`AllowedPowers`, `freeMode`, `unlockAll`) intersected with permanent `PowerSave` (`Unlocked_Powers`).
 
-## Level flow
-- `LevelStart` spawn and start frame · `Checkpoint` · `LevelGoal` (finish) + `LevelExitSequence` (portal tunnel, fade, finish panel) · `CameraZone` · `DashZone` · `TutorialSign` · `Diamond` / `Atom` (collectibles, IResettable). `Bandage.cs` is still a live, working script (key `Bandage_<scene>_<id>`) but has no prefab and is replaced by Diamond in the design.
-## Hazards
-- `Hazard` (base kill trigger) · `RotatingSaw` · `SpinArm` · `StompBlock` (IMoverController) · `Cannon` · `FireJet` · `LavaLeaper`.
-## Interactables and platforms
-- `BouncePad` · `DestructibleObject` (HitSource enum: dash, ground pound) · `ElementGate` (gives a power, plays collect burst) · `CrumblingBlock` · `IceSurface` · `MovingPlatform` (IMoverController) · `OneWayPlatform`.
-## Builders (Editor/create-menu helpers, `Level/Builders/`)
-- `ElementoPrefabBuilders` (ElementoMaterials and prefab builders) · `ElementoUIBuilders` (level UI, control prompt) · `NeonBlock` (anchor Center/Left/TopLeft) · `NeonShapeMesh` · `NeonPortalTunnel`.
-## UI
-- `UI/LevelHUD` (timer, attempts) · `UI/PauseMenu` (resume, restart, quit; reloads scene) · `UI/ScreenFade` (alpha 1 on Awake at runtime) · `UI/ControlPrompt` (world-space prompt trigger).
+## Player & Camera
+- `Player/CC_ELEMENTO`: KCC controller (`IsSideScroller = true`, `Z = 0`). States: `Default`, `Dashing`, `GroundPound`, `Dead`, `Finished`, `Held`. Supports Jump, Double Jump, Fire Dash (with block momentum), Earth Ground Pound (with Mario slam through stacked breakables), Water Wall Jump & Gravity Flip, Air Glide, Slope Climb, One-Way Drop-Through, `GiveRecharge`, and `LaunchFromPadSlamOnly`.
+- `Player/BallVisuals`: rests in Base Spark (or Aether), morphs into element material during moves (`MoveStarted` + state morphing), dims when air charges are spent, pulses on recharge.
+- `Camera/CameraZoneBlender`: blends Cinemachine 3 Position Composer settings between `CameraZone` triggers.
 
-## Scene flow
-`TEMPLATE_SCENE` top level has only: StartPortal, FX_Start, PrefabLab, LevelCore, End_Portal, LevelFrame_40x14, ControlPrompt. **Player, Vfx, Sfx, CameraRig, LevelUI (HUD, PausePanel, FinishPanel, ScreenFade, EventSystem), KillPit, KillPit2, FX_FinalFrame are children inside the LevelCore prefab**, together with RespawnManager, LevelManager and DebugOverlay.
-LevelGoal -> LevelExitSequence -> LevelManager.LoadNextLevel: loads NextSceneName if set, otherwise the next build index. **After the last scene it wraps back to scene 0** (meant for a hub or menu later; it does not stop).
-
-## Hub (prefabs exist, mostly unwired; scripts not audited)
-Prefabs/Hub: BossArena, ElementPedestal, HubFloor, HubManager, HubPlatform, HubSpawnPoint, HubWall, LevelPortal, StarCounter, WorldGate. Also Player_hub, Camera/HubCamera, Camera/CameraRigX. Treat the hub as unfinished; ask before building on it.
-
-## Worlds
-Prefabs/Worlds/World1_Fire holds World1_Skyline and World1_VolumeProfile.
-
-## Save keys (PlayerPrefs)
-- `BestTime_<sceneName>` (float, -1 = none).
-- `Diamond_<sceneName>_<id>`, `Atom_<sceneName>_<id>`, Bandage pattern (int 1 = collected).
-No other save data exists yet.
-
-## Layers and input
-- Layers: Player 3, Destructible 6, Hazard 7, Interactable 8. No tags. Collision matrix is all ticked.
-- Input map Gameplay (CC_ELEMENTO's Gravity Flip Action is linked to Gameplay/Flip; Glide Action is empty and falls back to the jump button): Move, Jump, Dash, GroudPound (sic), Sprint, Flip, Interact, Attack, Look, Restart, PauseGame. UI map: standard + UnpauseGame.
-- Camera: Cinemachine Position Composer, distance 32, focal length 32, Brain on Player Camera.
+## Level Builders, Layers & Input
+- `NeonBlock`: procedural mesh + collider builder (`Anchor`: `TopLeft` on ground/ledge/one-way, `Center` on `DashWall`/moving/crumbling). Resize via whole-number `NeonBlock.Size`, never root `Transform.localScale`.
+- **Layers & Tags:** Default (0), Player (3), Destructible (6), Hazard (7), Interactable (8). **Zero custom tags**—never create or assign custom tags; scripts identify objects by component/interface.
+- **Save Keys (`PlayerPrefs`):** `BestTime_<sceneName>`, `Diamond_<sceneName>_<id>`, `Atom_<sceneName>_<id>`, `Unlocked_Powers`.

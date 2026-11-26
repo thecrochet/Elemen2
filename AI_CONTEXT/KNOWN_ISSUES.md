@@ -1,29 +1,23 @@
-# Known issues and open decisions (read only on request)
+# Known Issues & Open Decisions (Read Only on Request)
 
-## Verified bugs
-1. Diamond/Atom `SetVisible` disables every renderer including the ParticleSystemRenderer, so the collect burst never shows. Fix pending (Kit10: skip ParticleSystemRenderer).
-2. DestructibleObject has no CrackEffect slot; FX_CrackHit cannot play on non-breaking hits. Fix pending (Kit10).
-3. ScreenFade is visible in the Scene view at edit time (alpha only forced at runtime). Fix pending (Kit10: Reset sets alpha 0).
-4. ElementGate collect burst and CollectEffect slots empty on several prefabs; burst appears in the wrong place and untinted.
-5. `PowerUpPickup.cs` is entirely commented out (dead code). Safe to delete only if the user says so.
-6. Glide Action slot on CC_ELEMENTO is empty; glide uses the jump button (no dedicated glide input).
-7. Input conflicts: Enter and gamepad West are both GroudPound and Attack; North is both Interact and Flip. Action is spelled `GroudPound`.
-
-8. `FX_AmbientAether` does not exist (Vfx.cs treats it as optional and skips it). First task: create it.
-9. `LevelManager` wraps to scene 0 after the last scene instead of stopping (not a bug yet, a decision for the hub).
-10. Prefab `SecretDoor` exists in Prefabs/Level/Flow but no SecretDoor script was found (not verified).
-11. Prefab filenames `TutorialSIgn_*` have a capital I typo. `ElementoPrefabBuilders.cs` holds two classes (ElementoMaterials, ElementoPrefabBuilders); harmless.
-12. Not verified: compile errors and warnings, and per-field null Inspector slots (needs an Editor compile run).
+## Verified Bugs & Quirks
+1. **Duplicate `DashWall` Prefab:** `Assets/Prefabs/Level/Platforms/` contains a non-breakable `DashWall` copy. Always instantiate breakable walls from `Assets/Prefabs/Level/Interactables/`.
+2. **Template Defaults:** `Assets/Scenes/Templates/LEVEL_TEMPLATE.unity` places `Player` at `X = -10` and sets `LevelManager.NextSceneName = "PrefabLab"`. Every duplicated level must move `Player` to `StartPortal/SpawnPoint` and update `NextSceneName`.
+3. **Whole-Number `NeonBlock.Size`:** `NeonBlock.Size` uses whole numbers; never pass fractional floats like `14.5` to `NeonBlock.Size`.
+4. **Prefab Filename Typos:** `TutorialSIgn_*` prefabs have a capital `I`, and `ElementGate _Fire` may have a space before the underscore. Always search `Assets/Prefabs/` flexibly when instantiating.
+5. **Duplicate `Vfx` in `LevelCore`:** `LevelCore` has historically contained two nested `Vfx` instances (one disabled). Keep only one active `Vfx` per scene so `Vfx.Instance` is unambiguous.
+6. **Diamond / Atom Collect Burst:** `SetVisible` previously disabled `ParticleSystemRenderer` or lacked a child `FX_*` reference on older prefab copies; verify `CollectEffect` slots when placing collectibles.
+7. **ScreenFade Edit-Time Alpha:** `ScreenFade` forces alpha at runtime; ensure edit-time alpha is `0` so it does not obscure the Scene view.
+8. **Input Conflicts:** `Enter` and gamepad West overlap on `GroudPound` (spelled without `n` in the Input Action asset) and `Attack`; `GlideAction` slot on `CC_ELEMENTO` is optional/empty (falls back to Jump button).
+9. **`PowerUpPickup.cs`:** Dead commented-out file; leave untouched unless explicitly asked to delete.
+10. **`LevelManager` Scene Wrap:** Wraps back to build index `0` after the last scene in `EditorBuildSettings`.
 
 ## Risks
-- Several materials still use legacy shaders; they may turn pink on an upgrade.
-- Links to scene objects outside a prefab are lost when the prefab is placed in another scene (LevelCore overrides wire Player to managers/camera).
-- A second Vfx instance in a scene breaks Vfx.Instance.
-- Portal exit animation / menu not appearing after finish: unresolved. End_Portal's LevelExitSequence and LevelGoal.ExitSequence slot look intact in the scan; check Missing Script, duplicate canvases, LevelHUD and PauseMenu slots, Console.
-- FX_AmbientAir is too strong: suggested Simulation Space Local, Start Speed 0–0.3, Orbital 0, Radius 0.55, Rate about 4 (not applied).
+- **Scene References Inside Prefabs:** Links to scene objects outside a prefab are lost when placed in a new scene (`LevelCore` overrides wire `Player` to managers and `CameraRig`; `End_Portal` uses `ScreenFade` automatically when `FadeGroup` is empty).
+- **Legacy Shaders:** Materials inside `Legacy/` folders must stay untouched; active materials must use URP `Elemento/*` shaders.
+- **Root Scale vs. `NeonBlock.Size`:** Never stretch `Transform.localScale` on `NeonBlock` prefabs; always resize via `NeonBlock.Size`.
 
-## Cleanup list
-Apply Kit10 (user decides) · rebind input conflicts · add Glide action · replace legacy shaders · wire or remove Attack/Interact/Look · empty placeholder ScriptableObjects and Legacy folders stay untouched.
-
-## Open design decisions
-Fan boss alternate name · ending glow vs dark Aether · all powers outside the final level · Air/Water world objects · what Diamond/Atom unlock.
+## Open Design Decisions
+- `FAN.DRV` alternate name for Air boss.
+- Ending glow vs. dark Aether state.
+- What `Diamond` and `Atom` collectibles unlock in the Hub.
