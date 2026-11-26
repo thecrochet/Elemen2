@@ -6024,9 +6024,17 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 911178639018065799, guid: 52ff2c03bcd289f4293c3d084dcafcf4, type: 3}
+      propertyPath: NextSceneName
+      value: Level_36
+      objectReference: {fileID: 0}
     - target: {fileID: 3578923206369015488, guid: 52ff2c03bcd289f4293c3d084dcafcf4, type: 3}
       propertyPath: m_Mesh
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 4301404232051189757, guid: 52ff2c03bcd289f4293c3d084dcafcf4, type: 3}
+      propertyPath: NextSceneName
+      value: Level_36
       objectReference: {fileID: 0}
     - target: {fileID: 6026162564254251448, guid: 52ff2c03bcd289f4293c3d084dcafcf4, type: 3}
       propertyPath: m_Name
@@ -11749,6 +11757,10 @@ PrefabInstance:
     - target: {fileID: 1831811843033559024, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3658756148683489717, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
+      propertyPath: NextSceneName
+      value: Level_36
       objectReference: {fileID: 0}
     - target: {fileID: 4124177981569617196, guid: 7988d6300917ba9468312360fbe66cf7, type: 3}
       propertyPath: SpawnPoint
